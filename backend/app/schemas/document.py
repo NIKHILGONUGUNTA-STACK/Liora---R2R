@@ -9,13 +9,14 @@ class DocumentBase(BaseModel):
     mime_type: Optional[str] = None
     file_size: Optional[int] = None
     file_hash: str
-    metadata_: Dict[str, Any] = Field(default_factory=dict, alias="metadata")
+    storage_path: Optional[str] = None
+    doc_metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class DocumentCreate(DocumentBase):
     pass
 
 class DocumentResponse(DocumentBase):
-    id: UUID4
+    id: uuid.UUID
     status: DocumentStatus
     created_at: datetime
     updated_at: datetime
@@ -28,16 +29,19 @@ class DocumentChunkBase(BaseModel):
     content: str
     chunk_index: int
     page_number: Optional[int] = None
-    metadata_: Dict[str, Any] = Field(default_factory=dict, alias="metadata")
+    doc_metadata: Dict[str, Any] = Field(default_factory=dict)
     # We do not expose the embedding vector by default
 
+import uuid
+
 class DocumentChunkCreate(DocumentChunkBase):
-    document_id: UUID4
+    id: Optional[uuid.UUID] = None
+    document_id: uuid.UUID
     embedding: Optional[List[float]] = None
 
 class DocumentChunkResponse(DocumentChunkBase):
-    id: UUID4
-    document_id: UUID4
+    id: uuid.UUID
+    document_id: uuid.UUID
     created_at: datetime
 
     class Config:

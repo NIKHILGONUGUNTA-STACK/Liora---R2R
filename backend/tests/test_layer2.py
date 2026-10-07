@@ -33,14 +33,14 @@ def test_document_model_crud(db_session):
         filename="test_aegis.pdf",
         title="Aegis Document",
         file_hash="fakehash123",
-        metadata={"source": "upload"}
+        doc_metadata={"source": "upload"}
     )
     doc = repo.create_document(doc_in)
     
     assert doc.id is not None
     assert doc.filename == "test_aegis.pdf"
     assert doc.status == "uploaded"
-    assert doc.metadata_["source"] == "upload"
+    assert doc.doc_metadata["source"] == "upload"
 
     retrieved = repo.get_document(doc.id)
     assert retrieved is not None
@@ -60,14 +60,14 @@ def test_document_chunk_model_crud(db_session):
         document_id=doc.id,
         content="This is a test chunk.",
         chunk_index=0,
-        metadata={"page": 1}
+        doc_metadata={"page": 1}
     )
     chunk = chunk_repo.create_chunk(chunk_in)
     
     assert chunk.id is not None
     assert chunk.document_id == doc.id
     assert chunk.content == "This is a test chunk."
-    assert chunk.metadata_["page"] == 1
+    assert chunk.doc_metadata["page"] == 1
 
 def test_document_chunks_relationship_and_cascade(db_session):
     doc_repo = DocumentRepository(db_session)

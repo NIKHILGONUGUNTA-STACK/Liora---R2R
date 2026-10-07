@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import health
+from app.api.routes import health, documents, search, chat
 from app.core.exceptions import LioraException, liora_exception_handler
 from app.core.logging import logger
 
@@ -17,6 +17,9 @@ app.add_middleware(
 app.add_exception_handler(LioraException, liora_exception_handler)
 
 app.include_router(health.router, prefix="/api/v1", tags=["system"])
+app.include_router(documents.router, prefix="/api/v1/documents", tags=["documents"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["search"])
+app.include_router(chat.router, prefix="/api/v1/chat", tags=["chat"])
 
 @app.on_event("startup")
 async def startup_event():

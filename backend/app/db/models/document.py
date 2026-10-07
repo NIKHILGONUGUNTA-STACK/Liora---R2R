@@ -1,7 +1,7 @@
 import uuid
 import datetime
 import enum
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Enum
+from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Enum, Index
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
@@ -23,8 +23,9 @@ class Document(Base):
     mime_type = Column(String, nullable=True)
     file_size = Column(Integer, nullable=True)
     file_hash = Column(String, nullable=False, unique=True, index=True)
+    storage_path = Column(String, nullable=True)
     status = Column(Enum("uploaded", "processing", "ready", "failed", name="document_status"), nullable=False, default="uploaded")
-    metadata_ = Column("metadata", JSONB, default=dict)
+    doc_metadata = Column("metadata", JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
@@ -34,6 +35,12 @@ class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (
         UniqueConstraint('document_id', 'chunk_index', name='uix_document_chunk_index'),
+        # HNSW index for cosine distance on the embedding vector
+        # This creates the vector index for fast similarity search
+        Index('ix_document_chunks_embedding_hnsw', 'embedding', 
+              postgresql_using='hnsw',
+              postgresql_with={'m': 16, 'ef_construction': 64},
+              postgresql_ops={'embedding': 'vector_cosine_ops'}),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -41,7 +48,7 @@ class DocumentChunk(Base):
     content = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     page_number = Column(Integer, nullable=True)
-    metadata_ = Column("metadata", JSONB, default=dict)
+    doc_metadata = Column("metadata", JSONB, default=dict)
     embedding = Column(Vector(settings.EMBEDDING_DIMENSION), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
 
