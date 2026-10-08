@@ -1,8 +1,8 @@
 import uuid
 import datetime
 import enum
-from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Enum, Index
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy import Column, String, Integer, Text, DateTime, ForeignKey, UniqueConstraint, Enum, Index, Computed
+from sqlalchemy.dialects.postgresql import JSONB, UUID, TSVECTOR
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 from app.db.models.base import Base
@@ -36,11 +36,12 @@ class DocumentChunk(Base):
     __table_args__ = (
         UniqueConstraint('document_id', 'chunk_index', name='uix_document_chunk_index'),
         # HNSW index for cosine distance on the embedding vector
-        # This creates the vector index for fast similarity search
         Index('ix_document_chunks_embedding_hnsw', 'embedding', 
               postgresql_using='hnsw',
               postgresql_with={'m': 16, 'ef_construction': 64},
               postgresql_ops={'embedding': 'vector_cosine_ops'}),
+        # GIN index for full-text search
+        Index('ix_document_chunks_search_vector', 'search_vector', postgresql_using='gin'),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -50,6 +51,7 @@ class DocumentChunk(Base):
     page_number = Column(Integer, nullable=True)
     doc_metadata = Column("metadata", JSONB, default=dict)
     embedding = Column(Vector(settings.EMBEDDING_DIMENSION), nullable=True)
+    search_vector = Column(TSVECTOR, Computed("to_tsvector('english', content)", persisted=True), nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
 
     document = relationship("Document", back_populates="chunks")

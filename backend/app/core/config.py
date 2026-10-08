@@ -40,6 +40,34 @@ class Settings(BaseSettings):
     MAX_CONTEXT_CHARS: int = 12000
     MIN_RELEVANCE_SCORE: float = 0.0
 
+    # Layer 11 Hybrid Retrieval Settings
+    RETRIEVAL_MODE: str = "hybrid"
+    DENSE_TOP_K: int = 10
+    KEYWORD_TOP_K: int = 10
+    FINAL_TOP_K: int = 5
+    RRF_K: int = 60
+
+    # Layer 12 Reranking Settings
+    RERANKING_ENABLED: bool = True
+    RERANKER_PROVIDER: str = "cross_encoder"
+    RERANKER_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    RERANKER_CANDIDATE_TOP_K: int = 20
+    RERANKER_FINAL_TOP_K: int = 5
+
+    # Layer 13 Query Understanding Settings
+    QUERY_REWRITING_ENABLED: bool = True
+    QUERY_REWRITE_PROVIDER: str = "gemini"
+    QUERY_REWRITE_MODEL: str = "gemini-3.8-flash"
+    QUERY_REWRITE_TIMEOUT: float = 15.0
+    QUERY_REWRITE_MAX_RETRIES: int = 1
+
+    # Layer 14 Advanced Context Settings
+    CONTEXT_EXPANSION_ENABLED: bool = True
+    CONTEXT_NEIGHBOR_WINDOW: int = 1
+    CONTEXT_EXPANSION_MAX_BASE_RESULTS: int = 3
+    CONTEXT_MAX_EXPANDED_CHUNKS: int = 10
+    MAX_RESULTS_PER_DOCUMENT: int = 5
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

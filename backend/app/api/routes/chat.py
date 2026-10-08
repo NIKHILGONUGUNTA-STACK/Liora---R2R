@@ -4,7 +4,10 @@ from app.db.database import get_db
 from app.schemas.chat import ChatRequest
 from app.schemas.search import SearchRequest
 from app.schemas.generation import GenerationResult
-from app.retrieval.retriever import VectorRetriever
+from app.retrieval.hybrid import HybridRetriever
+from app.retrieval.pipeline import RetrievalPipeline
+from app.query.provider import get_query_provider
+from app.reranking.provider import get_reranker
 from app.embeddings.base import EmbeddingProvider
 from app.embeddings.provider import get_embedding_provider
 from app.generation.base import LLMProvider
@@ -28,11 +31,22 @@ def chat(
     start_time = time.time()
     
     try:
-        # 1. & 2. & 3. Retrieval (Layer 8)
+        # 0. Query Understanding (Layer 13)
+        query_provider = get_query_provider()
+        rewritten_query = request.query
+        query_analysis = None
+        if query_provider:
+            query_analysis = query_provider.analyze_and_rewrite(request.query)
+            rewritten_query = query_analysis.rewritten_query
+            
+        # 1. & 2. & 3. Retrieval (Layer 8, 11, 12)
         retriever_start = time.time()
-        retriever = VectorRetriever(session=db, provider=embedding_provider)
-        search_req = SearchRequest(query=request.query, top_k=request.top_k)
-        search_resp = retriever.retrieve(search_req)
+        hybrid_retriever = HybridRetriever(session=db, provider=embedding_provider)
+        reranker = get_reranker()
+        pipeline = RetrievalPipeline(retriever=hybrid_retriever, reranker=reranker)
+        
+        search_req = SearchRequest(query=rewritten_query, original_query=request.query, top_k=request.top_k)
+        search_resp = pipeline.retrieve(search_req)
         retrieval_latency = (time.time() - retriever_start) * 1000
         
         # 4. Context Assembly (Layer 9)
@@ -42,6 +56,7 @@ def chat(
         assembly_latency = (time.time() - assembler_start) * 1000
         
         # 5. & 6. & 7. Generation (Layer 10)
+        # We explicitly pass the original query to generation to ensure the answer is directed at the user's literal question
         generation_result = llm_provider.generate(query=request.query, context=context_package)
         total_latency = (time.time() - start_time) * 1000
         
@@ -51,6 +66,7 @@ def chat(
                 "request_id": request_id,
                 "provider": "gemini",
                 "model": getattr(generation_result, "model", "unknown"),
+                "query_rewritten": query_analysis.requires_rewrite if query_analysis else False,
                 "retrieval_latency_ms": retrieval_latency,
                 "context_assembly_latency_ms": assembly_latency,
                 "generation_latency_ms": getattr(generation_result, "generation_latency_ms", 0),
