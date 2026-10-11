@@ -42,6 +42,8 @@ class VectorRetriever:
         )
         
         if request.filter:
+            if request.filter.owner_id:
+                query = query.filter(Document.owner_id == request.filter.owner_id)
             if request.filter.document_id:
                 query = query.filter(Document.id == request.filter.document_id)
             if request.filter.filename:

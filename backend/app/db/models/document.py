@@ -16,19 +16,27 @@ class DocumentStatus(str, enum.Enum):
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        UniqueConstraint('owner_id', 'file_hash', name='uix_owner_file_hash'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True) # Will make nullable=False after migration
     filename = Column(String, nullable=False)
     title = Column(String, nullable=True)
     mime_type = Column(String, nullable=True)
     file_size = Column(Integer, nullable=True)
-    file_hash = Column(String, nullable=False, unique=True, index=True)
+    file_hash = Column(String, nullable=False, index=True)
     storage_path = Column(String, nullable=True)
     status = Column(Enum("uploaded", "processing", "ready", "failed", name="document_status"), nullable=False, default="uploaded")
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0, nullable=False)
+    processing_started_at = Column(DateTime, nullable=True)
     doc_metadata = Column("metadata", JSONB, default=dict)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False, index=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
+    owner = relationship("User", back_populates="documents")
     chunks = relationship("DocumentChunk", back_populates="document", cascade="all, delete-orphan")
 
 class DocumentChunk(Base):

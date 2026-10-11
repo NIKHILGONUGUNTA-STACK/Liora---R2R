@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     CONTEXT_MAX_EXPANDED_CHUNKS: int = 10
     MAX_RESULTS_PER_DOCUMENT: int = 5
 
+    # Layer 15 Security Settings
+    AUTH_ENABLED: bool = True
+    AUTH_SECRET_KEY: str = Field(..., description="JWT Secret Key")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"] # Secure default for credentials
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

@@ -10,16 +10,21 @@ class DocumentRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def create_document(self, doc_in: DocumentCreate) -> Document:
-        db_doc = Document(
-            filename=doc_in.filename,
-            title=doc_in.title,
-            mime_type=doc_in.mime_type,
-            file_size=doc_in.file_size,
-            file_hash=doc_in.file_hash,
-            storage_path=doc_in.storage_path,
-            doc_metadata=doc_in.doc_metadata
-        )
+    def create_document(self, doc_in: DocumentCreate, document_id: Optional[UUID] = None) -> Document:
+        kwargs = {
+            "filename": doc_in.filename,
+            "owner_id": doc_in.owner_id,
+            "title": doc_in.title,
+            "mime_type": doc_in.mime_type,
+            "file_size": doc_in.file_size,
+            "file_hash": doc_in.file_hash,
+            "storage_path": doc_in.storage_path,
+            "doc_metadata": doc_in.doc_metadata
+        }
+        if document_id:
+            kwargs["id"] = document_id
+            
+        db_doc = Document(**kwargs)
         self.session.add(db_doc)
         self.session.commit()
         self.session.refresh(db_doc)
@@ -28,8 +33,8 @@ class DocumentRepository:
     def get_document(self, doc_id: UUID) -> Optional[Document]:
         return self.session.get(Document, doc_id)
 
-    def get_document_by_hash(self, file_hash: str) -> Optional[Document]:
-        stmt = select(Document).where(Document.file_hash == file_hash)
+    def get_document_by_hash(self, file_hash: str, owner_id: UUID) -> Optional[Document]:
+        stmt = select(Document).where(Document.file_hash == file_hash, Document.owner_id == owner_id)
         return self.session.scalar(stmt)
         
     def update_document_status(self, doc_id: UUID, status: str) -> Optional[Document]:

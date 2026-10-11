@@ -1,10 +1,12 @@
-from pydantic import BaseModel, UUID4, Field
+from pydantic import BaseModel, Field
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+import uuid
 from app.db.models.document import DocumentStatus
 
 class DocumentBase(BaseModel):
     filename: str
+    owner_id: uuid.UUID
     title: Optional[str] = None
     mime_type: Optional[str] = None
     file_size: Optional[int] = None
@@ -31,8 +33,6 @@ class DocumentChunkBase(BaseModel):
     page_number: Optional[int] = None
     doc_metadata: Dict[str, Any] = Field(default_factory=dict)
     # We do not expose the embedding vector by default
-
-import uuid
 
 class DocumentChunkCreate(DocumentChunkBase):
     id: Optional[uuid.UUID] = None

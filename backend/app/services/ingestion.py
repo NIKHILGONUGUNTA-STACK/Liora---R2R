@@ -7,6 +7,7 @@ from app.services.storage import FileStorage
 from app.services.pdf_parser import PDFParserService, ParsedDocument
 from app.core.logging import logger
 from typing import Tuple
+import uuid
 
 class DocumentIngestionService:
     def __init__(self, db: Session):
@@ -46,35 +47,46 @@ class DocumentIngestionService:
             
         return size
 
-    async def ingest(self, file: UploadFile) -> Tuple[DocumentResponse, 'CleanDocument']:
-        logger.info(f"Starting ingestion for {file.filename}")
+    async def initiate_ingestion(self, file: UploadFile, owner_id: uuid.UUID) -> DocumentResponse:
+        logger.info(f"Initiating ingestion for {file.filename}")
         
         # 1. Validation
         file_size = await self._validate_file(file)
         
         # 2. Hashing & Duplicate detection
         file_hash = await self._calculate_hash(file)
-        existing_doc = self.repo.get_document_by_hash(file_hash)
+        existing_doc = self.repo.get_document_by_hash(file_hash, owner_id)
         if existing_doc:
             logger.info(f"Document {file.filename} already exists (hash matched).")
-            return DocumentResponse.model_validate(existing_doc), ParsedDocument(metadata={}, pages=[])
+            return DocumentResponse.model_validate(existing_doc)
             
         # 3. Storage
-        storage_path = await self.storage.save(file, file_hash)
+        document_id = uuid.uuid4()
+        storage_path = await self.storage.save(file, file_hash, str(owner_id), str(document_id))
         
         # 4. Document Creation
         doc_in = DocumentCreate(
             filename=file.filename,
+            owner_id=owner_id,
             mime_type="application/pdf",
             file_size=file_size,
             file_hash=file_hash,
             storage_path=storage_path,
             doc_metadata={"source": "api_upload"}
         )
-        doc = self.repo.create_document(doc_in)
+        doc = self.repo.create_document(doc_in, document_id)
         
-        # 5. Process
-        self.repo.update_document_status(doc.id, "processing")
+        return DocumentResponse.model_validate(doc)
+
+    def process_document(self, document_id: uuid.UUID):
+        # NOTE: This runs in background worker, expects a valid db session in self.repo
+        doc = self.repo.get_document(document_id)
+        if not doc:
+            logger.error(f"Document {document_id} not found for processing.")
+            return
+
+        storage_path = doc.storage_path
+        file_filename = doc.filename
         
         try:
             # 6. Parse PDF
@@ -83,12 +95,13 @@ class DocumentIngestionService:
             # 7. Clean Text and Normalize Metadata
             from app.services.text_cleaner import DocumentTextCleaner
             cleaner = DocumentTextCleaner()
-            clean_doc = cleaner.clean(parsed_doc, str(doc.id), file.filename)
+            clean_doc = cleaner.clean(parsed_doc, str(doc.id), file_filename)
             
             # Merge PDF metadata into Document metadata
             new_metadata = dict(doc.doc_metadata)
             new_metadata.update(clean_doc.metadata)
             doc.doc_metadata = new_metadata
+            self.repo.session.commit()
             
             # 8. Chunking
             from app.services.chunker import DocumentChunker
@@ -100,7 +113,6 @@ class DocumentIngestionService:
                 from app.embeddings.provider import get_embedding_provider
                 embedder = get_embedding_provider()
                 
-                # Filter valid texts just in case, though chunker prevents empties
                 texts_to_embed = [chunk.content for chunk in chunks]
                 embeddings = embedder.embed_texts(texts_to_embed)
                 
@@ -115,13 +127,10 @@ class DocumentIngestionService:
             
             # 11. Update status to ready
             self.repo.update_document_status(doc.id, "ready")
-            logger.info(f"Ingestion complete for {file.filename}")
-            
-            return DocumentResponse.model_validate(doc), clean_doc
+            logger.info(f"Ingestion complete for {file_filename}")
             
         except Exception as e:
-            logger.error(f"Ingestion failed for {file.filename}: {e}")
-            self.repo.update_document_status(doc.id, "failed")
-            # Optionally delete the file if parsing failed and we want to clean up
-            self.storage.delete(storage_path)
-            raise HTTPException(status_code=500, detail="Failed to parse PDF document.")
+            logger.error(f"Ingestion failed for {file_filename}: {e}")
+            doc.status = "failed"
+            doc.error_message = str(e)
+            self.repo.session.commit()

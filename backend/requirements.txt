@@ -8,3 +8,6 @@ pytest
 httpx
 pgvector
 sentence-transformers
+PyJWT
+argon2-cffi
+python-multipart

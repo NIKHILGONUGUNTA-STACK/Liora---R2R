@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class RetrievalFilter(BaseModel):
     document_id: Optional[uuid.UUID] = None
+    owner_id: Optional[uuid.UUID] = None
     filename: Optional[str] = None
     source_type: Optional[str] = None
     page_number: Optional[int] = None

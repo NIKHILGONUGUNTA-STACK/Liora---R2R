@@ -9,11 +9,17 @@ class FileStorage:
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    async def save(self, file: UploadFile, file_hash: str) -> str:
+    async def save(self, file: UploadFile, file_hash: str, owner_id: str, document_id: str) -> str:
         # Create a safe, unique filename based on the hash to avoid conflicts
+        # Prevent path traversal in extension
         ext = os.path.splitext(file.filename)[1] if file.filename else ".pdf"
+        ext = "".join(c for c in ext if c.isalnum() or c == ".")
         safe_filename = f"{file_hash}{ext}"
-        file_path = self.base_dir / safe_filename
+        
+        # Store in user/document specific directory
+        doc_dir = self.base_dir / str(owner_id) / str(document_id)
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        file_path = doc_dir / safe_filename
         
         # Seek to start since it might have been read for hashing
         await file.seek(0)
@@ -30,6 +36,11 @@ class FileStorage:
         path = Path(storage_path)
         if path.exists() and path.is_file():
             path.unlink()
+            # Try to remove the parent directory if empty
+            try:
+                path.parent.rmdir()
+            except OSError:
+                pass
             return True
         return False
 

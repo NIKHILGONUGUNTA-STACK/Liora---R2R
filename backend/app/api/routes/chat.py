@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.schemas.chat import ChatRequest
-from app.schemas.search import SearchRequest
+from app.schemas.search import SearchRequest, RetrievalFilter
 from app.schemas.generation import GenerationResult
+from app.db.models.user import User
+from app.api.deps import get_current_user
 from app.retrieval.hybrid import HybridRetriever
 from app.retrieval.pipeline import RetrievalPipeline
 from app.query.provider import get_query_provider
@@ -22,7 +24,8 @@ def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
     embedding_provider: EmbeddingProvider = Depends(get_embedding_provider),
-    llm_provider: LLMProvider = Depends(get_llm_provider)
+    llm_provider: LLMProvider = Depends(get_llm_provider),
+    current_user: User = Depends(get_current_user)
 ):
     import uuid
     import time
@@ -45,7 +48,16 @@ def chat(
         reranker = get_reranker()
         pipeline = RetrievalPipeline(retriever=hybrid_retriever, reranker=reranker)
         
-        search_req = SearchRequest(query=rewritten_query, original_query=request.query, top_k=request.top_k)
+        # Merge incoming filter (if any) and force owner_id
+        search_filter = request.filter if request.filter else RetrievalFilter()
+        search_filter.owner_id = current_user.id
+        
+        search_req = SearchRequest(
+            query=rewritten_query, 
+            original_query=request.query, 
+            top_k=request.top_k,
+            filter=search_filter
+        )
         search_resp = pipeline.retrieve(search_req)
         retrieval_latency = (time.time() - retriever_start) * 1000
         
