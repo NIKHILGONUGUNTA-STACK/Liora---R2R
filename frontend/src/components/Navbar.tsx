@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { LioraLogo } from './LioraLogo';
 
 interface NavbarProps {
   onLaunchConsole: () => void;
@@ -35,34 +36,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div
         className={`pointer-events-auto max-w-7xl mx-auto h-16 px-6 rounded-full transition-all duration-300 flex items-center justify-between gap-4 ${
           scrolled
-            ? 'bg-white/95 backdrop-blur-xl shadow-lg border border-slate-200/90'
-            : 'bg-white/90 backdrop-blur-xl shadow-sm border border-slate-200/80'
+            ? 'bg-white/95 backdrop-blur-xl border border-slate-200/90'
+            : 'bg-white/90 backdrop-blur-xl border border-slate-200/80'
         }`}
       >
         {/* Brand Zone */}
         <a href="#home" className="flex items-center gap-2 group">
-          <img
-            alt="Liora Logo"
-            className="w-8 h-8 rounded-lg object-contain shadow-xs transition-transform group-hover:scale-105"
-            src="https://lh3.googleusercontent.com/aida/AEtjO1V4SGvZTYEzo2QDIhAvvdw2XilZab8aI6Y91AATdr-rgPiU_HET8SknpZi2FG-eJuAJ3WKNF_qjxIxJc8BMHOyWwc6w7rxAqqvOkrRi_TNJ97n_SFoDWukVFwfErdRd2ppSHy-6EVgenVKn3ondmOlHIdrbJvbHrspwt3dbyqVyxIjklwblq-FVSI_7TC04keN_guuse6pw2yKtQn4-51-hRJttR-h1V7jDVEcgse5P76LRjxItlAIi-Kc"
-            onError={(e) => {
-              // Graceful SVG fallback if network asset delays
-              const target = e.currentTarget;
-              target.style.display = 'none';
-              const parent = target.parentElement;
-              if (parent && !parent.querySelector('.logo-fallback')) {
-                const fallback = document.createElement('div');
-                fallback.className = 'w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm logo-fallback';
-                fallback.innerText = 'L';
-                parent.prepend(fallback);
-              }
-            }}
-          />
+          <LioraLogo className="w-8 h-8 transition-transform group-hover:scale-105" />
           <span className="font-bold text-xl tracking-tight text-[#0b1c30]">
             Liora
           </span>
           <span className="px-2.5 py-0.5 rounded-full bg-[#e5eeff] text-[#434655] text-[11px] font-semibold tracking-wide border border-[#c3c6d7]/30">
-            v4.5
+            v1.0
           </span>
         </a>
 
@@ -96,7 +81,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={onLaunchConsole}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#2563eb] text-[#eeefff] hover:bg-[#1d4ed8] hover:text-white font-medium text-[14px] shadow-md border border-white/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#2563eb] text-[#eeefff] hover:bg-[#1d4ed8] hover:text-white font-medium text-[14px] border border-white/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <span>Launch Console</span>
             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

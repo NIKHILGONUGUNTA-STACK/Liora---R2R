@@ -19,17 +19,17 @@ def db_session():
     session.commit()
     session.close()
 
-def test_postgresql_connectivity(db_session):
+def test_postgresql_connectivity(db_session, test_user):
     result = db_session.execute(text("SELECT 1")).scalar()
     assert result == 1
 
-def test_pgvector_extension(db_session):
+def test_pgvector_extension(db_session, test_user):
     result = db_session.execute(text("SELECT extname FROM pg_extension WHERE extname = 'vector'")).scalar()
     assert result == "vector"
 
-def test_document_model_crud(db_session):
+def test_document_model_crud(db_session, test_user):
     repo = DocumentRepository(db_session)
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="test_aegis.pdf",
         title="Aegis Document",
         file_hash="fakehash123",
@@ -46,11 +46,11 @@ def test_document_model_crud(db_session):
     assert retrieved is not None
     assert retrieved.filename == doc.filename
 
-def test_document_chunk_model_crud(db_session):
+def test_document_chunk_model_crud(db_session, test_user):
     doc_repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
 
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="test_chunking.pdf",
         file_hash="fakehash456"
     )
@@ -69,11 +69,11 @@ def test_document_chunk_model_crud(db_session):
     assert chunk.content == "This is a test chunk."
     assert chunk.doc_metadata["page"] == 1
 
-def test_document_chunks_relationship_and_cascade(db_session):
+def test_document_chunks_relationship_and_cascade(db_session, test_user):
     doc_repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
 
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="test_relationship.pdf",
         file_hash="fakehash789"
     )
@@ -91,12 +91,12 @@ def test_document_chunks_relationship_and_cascade(db_session):
     chunks_after = chunk_repo.get_chunks_by_document(doc.id)
     assert len(chunks_after) == 0
 
-def test_unique_chunk_index_behavior(db_session):
+def test_unique_chunk_index_behavior(db_session, test_user):
     from sqlalchemy.exc import IntegrityError
     doc_repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
 
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="test_unique.pdf",
         file_hash="fakehash_unique"
     )
@@ -109,11 +109,11 @@ def test_unique_chunk_index_behavior(db_session):
     
     db_session.rollback()
 
-def test_vector_storage_smoke_test(db_session):
+def test_vector_storage_smoke_test(db_session, test_user):
     doc_repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
 
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="test_vector.pdf",
         file_hash="fakehash_vector"
     )

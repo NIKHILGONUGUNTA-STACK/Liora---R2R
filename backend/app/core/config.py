@@ -72,7 +72,14 @@ class Settings(BaseSettings):
     AUTH_ENABLED: bool = True
     AUTH_SECRET_KEY: str = Field(..., description="JWT Secret Key")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000"] # Secure default for credentials
+    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+    # OAuth 2.0 Providers (Google & GitHub)
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GITHUB_CLIENT_ID: str = ""
+    GITHUB_CLIENT_SECRET: str = ""
+    FRONTEND_URL: str = "http://localhost:3000"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

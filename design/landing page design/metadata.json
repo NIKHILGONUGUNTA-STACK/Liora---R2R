@@ -1,0 +1,8 @@
+{
+  "name": "Liora - Deterministic Knowledge Engine",
+  "description": "High-clarity knowledge intelligence and synthesis engine built for precision research, cross-domain verification, and enterprise-scale optical retrieval.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

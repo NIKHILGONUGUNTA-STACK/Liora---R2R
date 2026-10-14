@@ -50,20 +50,20 @@ def db_session():
     session.commit()
     session.close()
 
-def test_1_provider_interface():
+def test_1_provider_interface(test_user):
     provider = FakeEmbeddingProvider()
     assert provider.dimension == 1024
     assert provider.model_name == "fake-model"
     v = provider.embed_text("test")
     assert len(v) == 1024
 
-def test_2_fake_provider():
+def test_2_fake_provider(test_user):
     provider = FakeEmbeddingProvider()
     vectors = provider.embed_texts(["hello", "world"])
     assert len(vectors) == 2
     assert len(vectors[0]) == 1024
 
-def test_3_dimension_validation():
+def test_3_dimension_validation(test_user):
     # In Gemini provider, validation happens in embed_texts
     # Let's mock the internal call
     with patch.object(GeminiEmbeddingProvider, '_call_embed_api') as mock_call:
@@ -72,12 +72,12 @@ def test_3_dimension_validation():
         with pytest.raises(ValueError, match="Expected embedding dimension 1024"):
             provider.embed_texts(["test"])
 
-def test_4_empty_text():
+def test_4_empty_text(test_user):
     provider = GeminiEmbeddingProvider(api_key="fake")
     with pytest.raises(ValueError, match="empty text"):
         provider.embed_texts(["  "])
 
-def test_5_batch_ordering():
+def test_5_batch_ordering(test_user):
     provider = FakeEmbeddingProvider()
     inputs = ["a", "bb", "ccc"]
     vectors = provider.embed_texts(inputs)
@@ -85,14 +85,14 @@ def test_5_batch_ordering():
     assert vectors[1][0] == 2.0
     assert vectors[2][0] == 3.0
 
-def test_6_batch_size():
+def test_6_batch_size(test_user):
     provider = FakeEmbeddingProvider(batch_size=3)
     inputs = ["a"] * 10
     vectors = provider.embed_texts(inputs)
     assert len(vectors) == 10
     assert provider.call_count == 4 # 3 + 3 + 3 + 1
 
-def test_7_provider_failure():
+def test_7_provider_failure(test_user):
     with patch.object(GeminiEmbeddingProvider, '_call_embed_api') as mock_call:
         mock_call.side_effect = Exception("API Error")
         provider = GeminiEmbeddingProvider(api_key="fake")
@@ -101,17 +101,17 @@ def test_7_provider_failure():
 
 from google.genai.errors import APIError
 
-def test_8_retry_behavior():
+def test_8_retry_behavior(test_user):
     with patch.object(GeminiEmbeddingProvider, '_call_embed_api') as mock_call:
         # Tenacity retry applies to _call_embed_api itself. Since we are patching it, 
         # the retry decorator inside the class method won't run on the patch unless we patch the client
         pass
 
-def test_10_persistence(db_session):
+def test_10_persistence(db_session, test_user):
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc = repo.create_document(app.schemas.document.DocumentCreate(
+    doc = repo.create_document(app.schemas.document.DocumentCreate(owner_id=test_user.id, 
         filename="test_emb.pdf", file_hash="hash_emb"
     ))
     

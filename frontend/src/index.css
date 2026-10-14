@@ -236,20 +236,28 @@ body {
   overscroll-behavior: none;
 }
 
-.material-symbols-outlined {
-  font-family: 'Material Symbols Outlined';
-  font-weight: normal;
-  font-style: normal;
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  display: inline-block;
-  white-space: nowrap;
-  word-wrap: normal;
-  direction: ltr;
-  -webkit-font-feature-settings: 'liga';
-  -webkit-font-smoothing: antialiased;
+.dark {
+  --color-surface: #090d16;
+  --color-background: #090d16;
+  --color-on-surface: #f8fafc;
+  --color-on-surface-variant: #94a3b8;
+  --color-surface-container-lowest: #0b0f19;
+  --color-surface-container-low: #0e1526;
+  --color-surface-container: #111a30;
+  --color-surface-container-high: #16223f;
+  --color-surface-container-highest: #1c2b4e;
+  --color-outline: #334155;
+  --color-outline-variant: #1e293b;
+  --color-surface-dim: #060910;
+  --color-surface-bright: #141c2e;
+  --color-inverse-surface: #f1f5f9;
+  --color-inverse-on-surface: #0f172a;
+}
+
+html.dark, html.dark body {
+  background-color: #090d16;
+  color: #f8fafc;
+  color-scheme: dark;
 }
 
 /* Scrollbar hidden as requested in base style */

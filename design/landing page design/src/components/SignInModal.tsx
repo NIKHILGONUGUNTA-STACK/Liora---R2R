@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { apiFetch, setAuthToken } from '../lib/api';
 
 interface SignInModalProps {
   isOpen: boolean;
@@ -9,48 +8,15 @@ interface SignInModalProps {
 
 export const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [tab, setTab] = useState<'sso' | 'byo'>('sso');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      if (tab === 'sso') {
-        const formData = new URLSearchParams();
-        formData.append('username', email);
-        formData.append('password', password);
-
-        const response = await apiFetch('/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString(),
-          requireAuth: false
-        });
-        
-        const data = await response.json();
-        setAuthToken(data.access_token);
-        onSuccess(email);
-        onClose();
-      } else {
-        // BYO logic, if applicable. We keep the design but we could mock it.
-        onSuccess('operator@liora.internal');
-        onClose();
-      }
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
+    onSuccess(email || 'operator@liora.internal');
+    onClose();
   };
 
   return (
@@ -77,15 +43,15 @@ export const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onSuc
         {/* Tab switcher */}
         <div className="flex rounded-full bg-slate-100 p-1 text-xs font-semibold">
           <button
-            onClick={() => { setTab('sso'); setError(null); }}
+            onClick={() => setTab('sso')}
             className={`flex-1 py-1.5 rounded-full transition-all ${
               tab === 'sso' ? 'bg-white text-[#0b1c30] shadow-xs' : 'text-[#434655]'
             }`}
           >
-            Credentials / SSO
+            Enterprise SSO
           </button>
           <button
-            onClick={() => { setTab('byo'); setError(null); }}
+            onClick={() => setTab('byo')}
             className={`flex-1 py-1.5 rounded-full transition-all ${
               tab === 'byo' ? 'bg-white text-[#0b1c30] shadow-xs' : 'text-[#434655]'
             }`}
@@ -93,8 +59,6 @@ export const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onSuc
             BYO API Key
           </button>
         </div>
-
-        {error && <div className="text-red-500 text-sm">{error}</div>}
 
         {tab === 'sso' ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -109,24 +73,12 @@ export const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onSuc
                 className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#004ac6]/30"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[#0b1c30]">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#004ac6]/30"
-              />
-            </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-full bg-[#004ac6] text-white hover:bg-[#1d4ed8] font-semibold text-sm shadow-md transition-all disabled:opacity-50"
+              className="w-full py-3 rounded-full bg-[#004ac6] text-white hover:bg-[#1d4ed8] font-semibold text-sm shadow-md transition-all"
             >
-              {loading ? 'Authenticating...' : 'Continue with Credentials / SSO'}
+              Continue with SAML / Okta SSO
             </button>
 
             <div className="relative flex items-center justify-center my-1">

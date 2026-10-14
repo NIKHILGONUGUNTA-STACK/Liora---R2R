@@ -1,0 +1,6 @@
+{
+  "name": "Liora Knowledge Intelligence",
+  "description": "Enterprise cognitive synthesis, deterministic citation verification, and high-precision knowledge vector mesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

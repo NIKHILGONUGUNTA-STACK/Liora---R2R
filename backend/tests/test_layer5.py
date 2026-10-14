@@ -52,7 +52,7 @@ def test_3_paragraph_preservation(chunker):
     assert len(chunks) == 1
     assert p1 in chunks[0].content and p2 in chunks[0].content
 
-def test_4_overlap():
+def test_4_overlap(test_user):
     # 20 chars overlap
     c = DocumentChunker(chunk_size=50, chunk_overlap=20)
     text = "A" * 60 + "B" * 60
@@ -113,7 +113,7 @@ def test_10_determinism(chunker):
     assert chunks1[0].content == chunks2[0].content
     assert chunks1[0].chunk_index == chunks2[0].chunk_index
 
-def test_11_configuration_validation():
+def test_11_configuration_validation(test_user):
     with pytest.raises(ValueError):
         DocumentChunker(chunk_size=100, chunk_overlap=150)
 
@@ -131,11 +131,11 @@ def test_13_no_empty_chunks(chunker):
     # The chunker should just output 0 chunks if all text is space
     assert len(chunks) == 0
 
-def test_14_database_persistence(db_session, chunker):
+def test_14_database_persistence(db_session, chunker, test_user):
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="persistence.pdf",
         file_hash="chunkhash_db_test"
     )
@@ -150,11 +150,11 @@ def test_14_database_persistence(db_session, chunker):
     assert db_chunks[0].document_id == doc_db.id
     assert db_chunks[0].content == "Persistence test text"
     
-def test_15_transaction_safety(db_session, chunker):
+def test_15_transaction_safety(db_session, chunker, test_user):
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc_in = DocumentCreate(
+    doc_in = DocumentCreate(owner_id=test_user.id, 
         filename="tx_safety.pdf",
         file_hash="chunkhash_tx_safety"
     )

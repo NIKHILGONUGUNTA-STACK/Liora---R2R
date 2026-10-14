@@ -14,11 +14,11 @@ def db_session():
     session.commit()
     session.close()
 
-def test_1_pgvector_extension(db_session):
+def test_1_pgvector_extension(db_session, test_user):
     result = db_session.execute(text("SELECT extname FROM pg_extension WHERE extname = 'vector'")).fetchone()
     assert result is not None, "pgvector extension is not installed"
 
-def test_2_vector_column(db_session):
+def test_2_vector_column(db_session, test_user):
     result = db_session.execute(text("""
         SELECT data_type, udt_name 
         FROM information_schema.columns 
@@ -27,12 +27,12 @@ def test_2_vector_column(db_session):
     assert result is not None, "embedding column not found"
     assert result[1] == 'vector', "embedding column is not a vector type"
 
-def test_3_vector_dimension(db_session):
+def test_3_vector_dimension(db_session, test_user):
     # Test valid dimension
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc = repo.create_document(DocumentCreate(filename="dim_test.pdf", file_hash="hash_dim"))
+    doc = repo.create_document(DocumentCreate(owner_id=test_user.id, filename="dim_test.pdf", file_hash="hash_dim"))
     
     valid_vector = [0.1] * 1024
     chunk = DocumentChunkCreate(
@@ -45,12 +45,12 @@ def test_3_vector_dimension(db_session):
     db_chunk = chunk_repo.create_chunk(chunk)
     assert len(db_chunk.embedding) == 1024
 
-def test_4_invalid_vector_dimension(db_session):
+def test_4_invalid_vector_dimension(db_session, test_user):
     # Test invalid dimension
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc = repo.create_document(DocumentCreate(filename="dim_fail.pdf", file_hash="hash_dim_fail"))
+    doc = repo.create_document(DocumentCreate(owner_id=test_user.id, filename="dim_fail.pdf", file_hash="hash_dim_fail"))
     
     invalid_vector = [0.1] * 1025
     chunk = DocumentChunkCreate(
@@ -66,7 +66,7 @@ def test_4_invalid_vector_dimension(db_session):
     
     db_session.rollback()
 
-def test_5_vector_index_exists(db_session):
+def test_5_vector_index_exists(db_session, test_user):
     result = db_session.execute(text("""
         SELECT indexname, indexdef
         FROM pg_indexes 
@@ -74,7 +74,7 @@ def test_5_vector_index_exists(db_session):
     """)).fetchone()
     assert result is not None, "HNSW index does not exist"
     
-def test_6_index_method(db_session):
+def test_6_index_method(db_session, test_user):
     result = db_session.execute(text("""
         SELECT indexdef
         FROM pg_indexes 
@@ -82,7 +82,7 @@ def test_6_index_method(db_session):
     """)).fetchone()
     assert 'USING hnsw' in result[0], "Index is not using HNSW"
 
-def test_7_operator_class(db_session):
+def test_7_operator_class(db_session, test_user):
     result = db_session.execute(text("""
         SELECT indexdef
         FROM pg_indexes 
@@ -90,12 +90,12 @@ def test_7_operator_class(db_session):
     """)).fetchone()
     assert 'vector_cosine_ops' in result[0], "Index is not using vector_cosine_ops"
 
-def test_8_null_embedding_behavior(db_session):
+def test_8_null_embedding_behavior(db_session, test_user):
     # Chunks without embeddings should be stored fine
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
-    doc = repo.create_document(DocumentCreate(filename="null_emb.pdf", file_hash="hash_null"))
+    doc = repo.create_document(DocumentCreate(owner_id=test_user.id, filename="null_emb.pdf", file_hash="hash_null"))
     
     chunk = DocumentChunkCreate(
         document_id=doc.id,

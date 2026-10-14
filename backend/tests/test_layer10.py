@@ -73,7 +73,7 @@ def sample_context():
         total_characters=100
     )
 
-def test_1_insufficient_evidence():
+def test_1_insufficient_evidence(test_user):
     provider = GeminiProvider()
     empty_context = ContextPackage(query="What?", items=[], total_items=0, total_characters=0)
     
@@ -167,7 +167,7 @@ def test_5_empty_response(mock_client, sample_context):
     with pytest.raises(RuntimeError, match="empty response"):
         provider.generate("What is Aegis?", sample_context)
 
-def test_6_unauthenticated():
+def test_6_unauthenticated(test_user):
     with patch("app.generation.gemini.settings.GEMINI_API_KEY", new=""):
         provider = GeminiProvider()
         # Should set client to None

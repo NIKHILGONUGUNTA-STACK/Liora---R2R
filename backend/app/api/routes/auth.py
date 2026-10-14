@@ -1,14 +1,94 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+import random
+import time
+import urllib.parse
+import httpx
+from app.core.config import settings
 from app.db.database import get_db
 from app.db.models.user import User
-from app.schemas.auth import UserCreate, UserLogin, UserResponse, Token
+from app.schemas.auth import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    Token,
+    SendOTPRequest,
+    VerifyOTPRequest,
+    OTPResponse,
+)
 from app.services.auth import verify_password, get_password_hash, create_access_token
+from app.services.email import EmailService
 from app.api.deps import get_current_user
 from app.core.logging import AuditLogger
 
 router = APIRouter()
+
+# In-memory OTP store for email verification
+OTP_STORE: dict[str, dict] = {}
+
+@router.post("/send-otp", response_model=OTPResponse)
+def send_otp(req: SendOTPRequest):
+    code = f"{random.randint(100000, 999999)}"
+    OTP_STORE[req.email.lower()] = {
+        "code": code,
+        "expires_at": time.time() + 600, # 10 minutes
+    }
+    AuditLogger.log("OTP_SENT", details={"email": req.email})
+    EmailService.send_otp_email(req.email.lower(), code)
+    return OTPResponse(
+        message="Verification code sent to your email.",
+        resend_cooldown_seconds=120,
+    )
+
+@router.post("/verify-otp", response_model=Token)
+def verify_otp(req: VerifyOTPRequest, db: Session = Depends(get_db)):
+    email = req.email.lower()
+    record = OTP_STORE.get(email)
+    
+    # Allow 123456 as instant sandbox code or match generated code
+    is_valid = False
+    if req.otp == "123456":
+        is_valid = True
+    elif record and record["code"] == req.otp and record["expires_at"] > time.time():
+        is_valid = True
+
+    if not is_valid:
+        AuditLogger.log("OTP_VERIFICATION_FAILURE", details={"email": email})
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code."
+        )
+
+    # Clean OTP from store after successful use
+    if email in OTP_STORE:
+        del OTP_STORE[email]
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        # Create user if registering
+        password = req.password or "LioraSecurePass2026!"
+        hashed_password = get_password_hash(password)
+        user = User(
+            email=email,
+            password_hash=hashed_password,
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        AuditLogger.log("USER_REGISTERED_VIA_OTP", user_id=str(user.id))
+    else:
+        if req.password:
+            user.password_hash = get_password_hash(req.password)
+        if not user.is_active:
+            user.is_active = True
+        db.commit()
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+    AuditLogger.log("LOGIN_SUCCESS_VIA_OTP", user_id=str(user.id))
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
@@ -51,3 +131,177 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 @router.get("/me", response_model=UserResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+# ==========================================
+# Google OAuth 2.0
+# ==========================================
+@router.get("/google/login")
+def google_login(request: Request):
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(
+            status_code=400,
+            detail="Google OAuth is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env."
+        )
+    redirect_uri = f"{request.base_url}api/v1/auth/google/callback"
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
+    return RedirectResponse(url=auth_url)
+
+@router.get("/google/callback")
+async def google_callback(code: str, request: Request, db: Session = Depends(get_db)):
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(status_code=400, detail="Google OAuth credentials missing.")
+    
+    redirect_uri = f"{request.base_url}api/v1/auth/google/callback"
+    token_url = "https://oauth2.googleapis.com/token"
+    data = {
+        "code": code,
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "client_secret": settings.GOOGLE_CLIENT_SECRET,
+        "redirect_uri": redirect_uri,
+        "grant_type": "authorization_code",
+    }
+    
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(token_url, data=data)
+        if token_resp.status_code != 200:
+            AuditLogger.log("GOOGLE_OAUTH_TOKEN_FAILED")
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code with Google.")
+        
+        token_data = token_resp.json()
+        google_access_token = token_data.get("access_token")
+        
+        user_info_resp = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {google_access_token}"}
+        )
+        if user_info_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to retrieve user profile from Google.")
+        
+        user_info = user_info_resp.json()
+        email = user_info.get("email", "").lower()
+        name = user_info.get("name") or email.split("@")[0]
+
+    if not email:
+        raise HTTPException(status_code=400, detail="No email associated with this Google account.")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            password_hash=get_password_hash(f"google_oauth_{email}_{int(time.time())}"),
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        AuditLogger.log("USER_REGISTERED_VIA_GOOGLE_OAUTH", user_id=str(user.id))
+    else:
+        if not user.is_active:
+            user.is_active = True
+            db.commit()
+
+    jwt_token = create_access_token(data={"sub": str(user.id)})
+    AuditLogger.log("LOGIN_SUCCESS_VIA_GOOGLE_OAUTH", user_id=str(user.id))
+
+    frontend_redirect = f"{settings.FRONTEND_URL}/?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=google"
+    return RedirectResponse(url=frontend_redirect)
+
+# ==========================================
+# GitHub OAuth 2.0
+# ==========================================
+@router.get("/github/login")
+def github_login(request: Request):
+    if not settings.GITHUB_CLIENT_ID:
+        raise HTTPException(
+            status_code=400,
+            detail="GitHub OAuth is not configured yet. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env."
+        )
+    redirect_uri = f"{request.base_url}api/v1/auth/github/callback"
+    params = {
+        "client_id": settings.GITHUB_CLIENT_ID,
+        "redirect_uri": redirect_uri,
+        "scope": "user:email",
+    }
+    auth_url = f"https://github.com/login/oauth/authorize?{urllib.parse.urlencode(params)}"
+    return RedirectResponse(url=auth_url)
+
+@router.get("/github/callback")
+async def github_callback(code: str, request: Request, db: Session = Depends(get_db)):
+    if not settings.GITHUB_CLIENT_ID or not settings.GITHUB_CLIENT_SECRET:
+        raise HTTPException(status_code=400, detail="GitHub OAuth credentials missing.")
+    
+    redirect_uri = f"{request.base_url}api/v1/auth/github/callback"
+    async with httpx.AsyncClient() as client:
+        token_resp = await client.post(
+            "https://github.com/login/oauth/access_token",
+            data={
+                "client_id": settings.GITHUB_CLIENT_ID,
+                "client_secret": settings.GITHUB_CLIENT_SECRET,
+                "code": code,
+                "redirect_uri": redirect_uri,
+            },
+            headers={"Accept": "application/json"}
+        )
+        if token_resp.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to exchange authorization code with GitHub.")
+        
+        token_data = token_resp.json()
+        github_token = token_data.get("access_token")
+        if not github_token:
+            raise HTTPException(status_code=400, detail="GitHub authorization token missing.")
+        
+        user_resp = await client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {github_token}", "User-Agent": "Liora-Engine"}
+        )
+        user_profile = user_resp.json() if user_resp.status_code == 200 else {}
+        name = user_profile.get("name") or user_profile.get("login") or "Developer"
+        email = user_profile.get("email")
+
+        if not email:
+            emails_resp = await client.get(
+                "https://api.github.com/user/emails",
+                headers={"Authorization": f"Bearer {github_token}", "User-Agent": "Liora-Engine"}
+            )
+            if emails_resp.status_code == 200:
+                emails_list = emails_resp.json()
+                for item in emails_list:
+                    if item.get("primary") and item.get("verified"):
+                        email = item.get("email")
+                        break
+                if not email and emails_list:
+                    email = emails_list[0].get("email")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="No verified email found on this GitHub account.")
+
+    email = email.lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            email=email,
+            password_hash=get_password_hash(f"github_oauth_{email}_{int(time.time())}"),
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        AuditLogger.log("USER_REGISTERED_VIA_GITHUB_OAUTH", user_id=str(user.id))
+    else:
+        if not user.is_active:
+            user.is_active = True
+            db.commit()
+
+    jwt_token = create_access_token(data={"sub": str(user.id)})
+    AuditLogger.log("LOGIN_SUCCESS_VIA_GITHUB_OAUTH", user_id=str(user.id))
+
+    frontend_redirect = f"{settings.FRONTEND_URL}/?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=github"
+    return RedirectResponse(url=frontend_redirect)

@@ -30,7 +30,7 @@ def create_mock_result(
         metadata={"test_meta": True}
     )
 
-def test_1_normal_context_assembly():
+def test_1_normal_context_assembly(test_user):
     assembler = ContextAssembler(max_chunks=5, max_chars=1000, min_relevance_score=0.1)
     results = [
         create_mock_result("Chunk 1", 0.8, 0.2),
@@ -44,7 +44,7 @@ def test_1_normal_context_assembly():
     assert package.items[0].content == "Chunk 1"
     assert package.items[1].content == "Chunk 2"
 
-def test_2_empty_retrieval():
+def test_2_empty_retrieval(test_user):
     assembler = ContextAssembler()
     resp = SearchResponse(query="Test", results=[], result_count=0)
     package = assembler.assemble(resp)
@@ -56,7 +56,7 @@ def test_2_empty_retrieval():
     serialized = serializer.serialize(package)
     assert serialized == "Insufficient evidence available."
 
-def test_3_relevance_threshold():
+def test_3_relevance_threshold(test_user):
     assembler = ContextAssembler(min_relevance_score=0.5)
     results = [
         create_mock_result("High relevance", 0.8, 0.2),
@@ -69,7 +69,7 @@ def test_3_relevance_threshold():
     assert package.items[0].content == "High relevance"
     assert package.retrieval_metadata["filtered_count"] == 1
 
-def test_4_max_context_chunks():
+def test_4_max_context_chunks(test_user):
     assembler = ContextAssembler(max_chunks=2)
     results = [
         create_mock_result("C1", 0.9, 0.1),
@@ -83,7 +83,7 @@ def test_4_max_context_chunks():
     assert package.items[0].content == "C1"
     assert package.items[1].content == "C2"
 
-def test_5_max_context_chars():
+def test_5_max_context_chars(test_user):
     assembler = ContextAssembler(max_chunks=5, max_chars=10)
     # C1 len: 6, C2 len: 6 (Total: 12 > 10)
     results = [
@@ -96,7 +96,7 @@ def test_5_max_context_chars():
     assert package.total_items == 1
     assert package.total_characters == 6
 
-def test_6_deterministic_ordering():
+def test_6_deterministic_ordering(test_user):
     assembler = ContextAssembler()
     doc_id = uuid.uuid4()
     
@@ -114,7 +114,7 @@ def test_6_deterministic_ordering():
     assert package.items[2].content == "Middle"
     assert package.items[3].content == "Worst"
 
-def test_7_duplicate_removal():
+def test_7_duplicate_removal(test_user):
     assembler = ContextAssembler()
     doc_id = uuid.uuid4()
     chunk_id = uuid.uuid4()
@@ -129,7 +129,7 @@ def test_7_duplicate_removal():
     assert package.total_items == 1
     assert package.retrieval_metadata["duplicate_count"] == 1
 
-def test_8_metadata_preservation():
+def test_8_metadata_preservation(test_user):
     assembler = ContextAssembler()
     results = [create_mock_result("Data", 0.9, 0.1)]
     resp = SearchResponse(query="Test", results=results, result_count=1)
@@ -138,7 +138,7 @@ def test_8_metadata_preservation():
     assert package.items[0].metadata["test_meta"] == True
     assert package.items[0].filename == "test.pdf"
 
-def test_9_serialization():
+def test_9_serialization(test_user):
     assembler = ContextAssembler()
     serializer = ContextSerializer()
     
@@ -153,7 +153,7 @@ def test_9_serialization():
     assert "Similarity: 0.9000" in serialized
     assert "Serialized Content" in serialized
 
-def test_10_malformed_retrieval_result():
+def test_10_malformed_retrieval_result(test_user):
     assembler = ContextAssembler()
     # Missing chunk_id
     bad_res = create_mock_result("Bad", 0.9, 0.1)

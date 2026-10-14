@@ -1,12 +1,84 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SignInModal } from './components/SignInModal';
+import { LioraLogo } from './components/LioraLogo';
+import {
+  ArrowRight,
+  User,
+  PlayCircle,
+  Star,
+  CheckCircle2,
+  ShieldCheck,
+  BadgeCheck,
+  Timer,
+  Shield,
+  FolderGit2,
+  GitFork,
+  Brain,
+  Sparkles,
+  Copy,
+  Share2,
+  CheckSquare,
+  Network,
+  Coins,
+  CheckCheck,
+  Clock,
+  Zap,
+  MapPin,
+  Compass,
+  Activity,
+  Key,
+  CloudOff,
+  HeartHandshake,
+  Lock,
+} from 'lucide-react';
+import { getSession, clearSession, UserSession } from './lib/session';
+import { AuthPage, AuthMode } from './views/auth/AuthPage';
 
 export default function App() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [scale, setScale] = useState(1);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
-  const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [session, setSession] = useState<UserSession | null>(() => getSession());
+  const [view, setView] = useState<'landing' | 'auth'>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view');
+      if (v === 'auth') {
+        return 'auth';
+      }
+    }
+    return 'landing';
+  });
+  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [isPastGradient, setIsPastGradient] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Sync dark mode class & URL parameter with current view (Landing & Auth are light mode as in design, Overview & Chat are dark mode)
+  useEffect(() => {
+    if (view === 'landing' || view === 'auth') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+    }
+
+    try {
+      const url = new URL(window.location.href);
+      if (view === 'landing') {
+        url.searchParams.delete('view');
+      } else {
+        url.searchParams.set('view', view);
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch (_) {}
+  }, [view]);
+
+  // Sync session on custom auth events
+  useEffect(() => {
+    const handleAuthChange = (e: any) => {
+      setSession(e.detail || null);
+    };
+    window.addEventListener('auth-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-changed', handleAuthChange);
+  }, []);
 
   // Dynamic scale calculation to keep exact same screen on all displays (desktop, tablet, mobile)
   useEffect(() => {
@@ -42,20 +114,51 @@ export default function App() {
     };
   }, []);
 
+  // Detect when scroll passes the hero blue gradient to turn navbar solid blue
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const heroEl = document.getElementById('home');
+          if (heroEl) {
+            const rect = heroEl.getBoundingClientRect();
+            // The hero gradient completes its fade to white at ~48% of the hero section height.
+            // When that point reaches the navbar (~80px from top), turn the navbar solid blue.
+            setIsPastGradient(rect.top + rect.height * 0.48 <= 80);
+          } else {
+            setIsPastGradient(window.scrollY > 400);
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const switchBilling = (cycle: 'monthly' | 'annual') => {
     setBillingCycle(cycle);
   };
 
-  return (
-    <>
-      <SignInModal 
-        isOpen={isSignInOpen} 
-        onClose={() => setIsSignInOpen(false)} 
+  // If user is in Auth Page (Sign In / Register with OTP / Forgot Password)
+  if (view === 'auth') {
+    return (
+      <AuthPage
+        initialMode={authMode}
         onSuccess={(email) => {
-          console.log('Signed in as', email);
-          alert('Successfully signed in. (Landing page UI for signed-in state pending application design)');
-        }} 
+          setSession(getSession());
+          // Stay on auth page showing green tick, as explicitly requested
+        }}
+        onGoToLanding={() => setView('landing')}
       />
+    );
+  }
+
+  return (
     <div
       className="w-full bg-surface text-on-surface antialiased overflow-x-hidden relative"
       style={{
@@ -74,54 +177,74 @@ export default function App() {
         }}
         className="w-full bg-surface text-on-surface"
       >
-        {/* HEADER BAR (Sign In removed as requested) */}
+        {/* HEADER BAR - Turns solid full blue smoothly once hero gradient ends */}
         <header className="fixed top-0 left-0 w-full z-50 pt-4 px-margin pointer-events-none">
-          <div className="pointer-events-auto max-w-7xl mx-auto h-16 px-6 rounded-full bg-white/95 backdrop-blur-xl shadow-sm border border-slate-200/80 flex items-center justify-between gap-space-md">
+          <div
+            style={{ willChange: 'background-color, border-color' }}
+            className={`pointer-events-auto max-w-7xl mx-auto h-16 px-6 rounded-full flex items-center justify-between gap-space-md border transition-colors duration-700 ease-in-out ${
+              isPastGradient
+                ? 'bg-[#1B4EF5] border-blue-400/30'
+                : 'bg-white border-slate-200/80'
+            }`}
+          >
             <div className="flex items-center gap-space-sm">
-              <img
-                alt="Liora Logo"
-                className="w-8 h-8 rounded-md object-contain"
-                src="https://lh3.googleusercontent.com/aida/AEtjO1V4SGvZTYEzo2QDIhAvvdw2XilZab8aI6Y91AATdr-rgPiU_HET8SknpZi2FG-eJuAJ3WKNF_qjxIxJc8BMHOyWwc6w7rxAqqvOkrRi_TNJ97n_SFoDWukVFwfErdRd2ppSHy-6EVgenVKn3ondmOlHIdrbJvbHrspwt3dbyqVyxIjklwblq-FVSI_7TC04keN_guuse6pw2yKtQn4-51-hRJttR-h1V7jDVEcgse5P76LRjxItlAIi-Kc"
-              />
-              <span className="font-headline-sm text-headline-sm tracking-tight text-on-surface">
+              <LioraLogo className="w-8 h-8" />
+              <span
+                className={`font-headline-sm text-headline-sm tracking-tight transition-colors duration-700 ease-in-out ${
+                  isPastGradient ? 'text-white' : 'text-on-surface'
+                }`}
+              >
                 Liora
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm border border-outline-variant/30">
-                v4.5
+              <span
+                className={`px-2.5 py-0.5 rounded-full font-label-sm text-label-sm border transition-colors duration-700 ease-in-out ${
+                  isPastGradient
+                    ? 'bg-white/20 text-white border-white/30'
+                    : 'bg-surface-container text-on-surface-variant border-outline-variant/30'
+                }`}
+              >
+                v1.0
               </span>
             </div>
             <nav className="flex items-center gap-space-lg" data-active-classes="text-on-surface font-semibold">
               <a
-                className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors font-medium"
+                aria-current="page"
+                className={`font-label-lg text-label-lg font-semibold transition-colors duration-700 ease-in-out ${
+                  isPastGradient ? 'text-white' : 'text-on-surface'
+                }`}
                 data-path="home"
                 href="#home"
               >
                 Home
               </a>
               <a
-                aria-current="page"
-                className="font-label-lg text-label-lg text-on-surface font-semibold transition-colors"
-                data-path="product"
-                href="#workbench-preview"
-              >
-                Product
-              </a>
-              <a
-                className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors font-medium"
+                className={`font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out ${
+                  isPastGradient
+                    ? 'text-white/80 hover:text-white'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
                 data-path="architecture"
                 href="#architecture"
               >
                 Architecture
               </a>
               <a
-                className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors font-medium"
+                className={`font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out ${
+                  isPastGradient
+                    ? 'text-white/80 hover:text-white'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
                 data-path="benchmark"
                 href="#benchmark"
               >
                 Benchmark
               </a>
               <a
-                className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors font-medium"
+                className={`font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out ${
+                  isPastGradient
+                    ? 'text-white/80 hover:text-white'
+                    : 'text-on-surface-variant hover:text-on-surface'
+                }`}
                 data-path="pricing"
                 href="#pricing"
               >
@@ -129,19 +252,58 @@ export default function App() {
               </a>
             </nav>
             <div className="flex items-center gap-space-md">
-              <a
-                className="inline-flex items-center gap-1.5 px-space-lg py-2.5 rounded-full bg-primary-container text-on-primary-container hover:bg-secondary hover:text-on-secondary font-label-lg text-label-lg shadow-md border border-white/20 transition-all"
+              {/* Separate dedicated Sign In button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setView('auth');
+                }}
+                className={`px-4 py-2 rounded-full font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out cursor-pointer ${
+                  isPastGradient
+                    ? 'text-white/90 hover:text-white hover:bg-white/10'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                Sign In
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('create');
+                  setView('auth');
+                }}
+                className={`group inline-flex items-center gap-2 px-space-lg py-2.5 rounded-full font-label-lg text-label-lg border transition-colors duration-700 ease-in-out cursor-pointer shadow-none ${
+                  isPastGradient
+                    ? 'bg-white text-[#1B4EF5] hover:bg-blue-50 border-white/40 font-semibold'
+                    : 'bg-primary-container text-on-primary-container hover:bg-secondary hover:text-on-secondary border-transparent'
+                }`}
                 data-path="launch-console"
-                href="#workbench-preview"
               >
                 <span>Launch Console</span>
-                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-              </a>
+                <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </button>
               <button 
-                onClick={() => setIsSignInOpen(true)}
-                className="w-8 h-8 rounded-full bg-surface-container border border-outline-variant/30 flex items-center justify-center shrink-0 text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+                onClick={() => {
+                  setAuthMode('signin');
+                  setView('auth');
+                }}
+                className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-700 ease-in-out cursor-pointer ${
+                  isPastGradient
+                    ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+                    : 'bg-surface-container border-outline-variant/30 text-on-surface hover:bg-surface-container-high'
+                }`}
+                aria-label="User account"
+                title={session ? `Signed in as (${session.email})` : 'Sign In'}
               >
-                <span className="material-symbols-outlined text-[18px]">person</span>
+                {session ? (
+                  <span className={`font-bold text-xs ${isPastGradient ? 'text-white' : 'text-[#1B4EF5]'}`}>
+                    {session.firstName ? session.firstName.charAt(0) : session.email.charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <User className={`w-4.5 h-4.5 transition-colors duration-700 ease-in-out ${isPastGradient ? 'text-white' : 'text-slate-700'}`} />
+                )}
               </button>
             </div>
           </div>
@@ -165,7 +327,7 @@ export default function App() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400"></span>
                   </span>
-                  <span className="text-white">Deterministic Engine v4.5</span>
+                  <span className="text-white">Deterministic Engine v1.0</span>
                   <span className="text-white/40">•</span>
                   <span className="text-sky-300 font-medium">Sub-50ms Verification</span>
                 </div>
@@ -204,41 +366,39 @@ export default function App() {
 
                 <div className="flex flex-row items-center justify-center gap-4 mb-12">
                   <a
-                    className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg shadow-[0_10px_25px_-5px_rgba(37,99,235,0.6)] hover:bg-secondary transition-all transform hover:-translate-y-0.5 border border-white/20"
+                    className="group inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full bg-primary-container text-on-primary-container font-label-lg text-label-lg shadow-[0_10px_25px_-5px_rgba(37,99,235,0.6)] hover:bg-secondary transition-all transform hover:-translate-y-0.5 border border-white/20"
                     href="#pricing"
                   >
                     <span>Start Free with BYO API</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <ArrowRight className="w-4.5 h-4.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
                   </a>
                   <a
                     className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-surface-container-lowest text-on-surface border border-outline-variant/30 font-label-lg text-label-lg shadow-sm hover:bg-surface-container transition-all"
                     href="#workbench-preview"
                   >
-                    <span className="material-symbols-outlined text-[18px] text-primary">play_circle</span>
+                    <PlayCircle className="w-4.5 h-4.5 text-primary shrink-0" />
                     <span>Explore Live Interactive Demo</span>
                   </a>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-y-3 gap-x-8 text-on-surface-variant font-label-sm text-label-sm pt-2 pb-6">
                   <div className="flex items-center gap-1.5">
-                    <div className="flex text-amber-300">
-                      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                    <div className="flex gap-0.5 text-amber-400">
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                      ))}
                     </div>
                     <span className="font-semibold text-on-surface">4.95/5</span>
                     <span className="text-on-surface-variant">(280+ engineering teams)</span>
                   </div>
                   <span className="text-outline-variant">•</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+                    <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                     <span className="text-on-surface">Bring your own API key free forever</span>
                   </div>
                   <span className="text-outline-variant">•</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-primary">verified_user</span>
+                    <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
                     <span className="text-on-surface">FIPS 140-3 &amp; SOC 2 Type II compliant</span>
                   </div>
                 </div>
@@ -248,7 +408,7 @@ export default function App() {
                   {/* Floating Badges */}
                   <div className="flex absolute -left-8 top-20 z-20 items-center gap-3 px-4 py-3 rounded-2xl bg-surface-container-lowest shadow-xl border border-slate-300/70 text-left">
                     <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-primary">
-                      <span className="material-symbols-outlined text-[20px]">verified</span>
+                      <BadgeCheck className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="font-label-sm text-label-sm font-semibold text-on-surface">100% Deterministic</div>
@@ -258,7 +418,7 @@ export default function App() {
 
                   <div className="flex absolute -right-6 top-16 z-20 items-center gap-3 px-4 py-3 rounded-2xl bg-surface-container-lowest shadow-xl border border-slate-300/70 text-left">
                     <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-secondary">
-                      <span className="material-symbols-outlined text-[20px]">timer</span>
+                      <Timer className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="font-label-sm text-label-sm font-semibold text-on-surface">42ms Latency</div>
@@ -268,7 +428,7 @@ export default function App() {
 
                   <div className="flex absolute -right-8 bottom-28 z-20 items-center gap-3 px-4 py-3 rounded-2xl bg-surface-container-lowest shadow-xl border border-slate-300/70 text-left">
                     <div className="w-9 h-9 rounded-xl bg-surface-container flex items-center justify-center text-secondary">
-                      <span className="material-symbols-outlined text-[20px]">security</span>
+                      <Shield className="w-5 h-5" />
                     </div>
                     <div>
                       <div className="font-label-sm text-label-sm font-semibold text-on-surface">0 Hallucination Drift</div>
@@ -303,8 +463,8 @@ export default function App() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3 font-label-sm text-label-sm">
-                        <span className="text-on-surface-variant flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px] text-primary">folder_supervised</span>
+                        <span className="text-on-surface-variant flex items-center gap-1.5">
+                          <FolderGit2 className="w-4 h-4 text-primary shrink-0" />
                           <span>Corpus: Aegis Core Vault</span>
                           <span className="text-outline-variant">(42,910 fragments)</span>
                         </span>
@@ -312,7 +472,7 @@ export default function App() {
                           Sync Active
                         </span>
                         <button className="px-3 py-1 rounded-full bg-surface-container-lowest text-on-surface hover:bg-surface-container transition-colors shadow-sm flex items-center gap-1 font-label-sm text-label-sm border border-outline-variant/30">
-                          <span className="material-symbols-outlined text-[14px]">fork_right</span>
+                          <GitFork className="w-3.5 h-3.5 text-on-surface-variant shrink-0" />
                           <span>Branch Thread</span>
                         </button>
                       </div>
@@ -324,7 +484,7 @@ export default function App() {
                         {/* Question Bubble */}
                         <div className="flex items-start gap-3.5 bg-surface-container-low p-4 rounded-2xl">
                           <div className="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-[18px]">psychology</span>
+                            <Brain className="w-4.5 h-4.5 text-on-primary shrink-0" />
                           </div>
                           <div className="flex flex-col gap-1 w-full">
                             <div className="flex items-center justify-between">
@@ -355,7 +515,7 @@ export default function App() {
                         {/* Synthesized Response */}
                         <div className="flex items-start gap-3.5 bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-outline-variant/20">
                           <div className="w-9 h-9 rounded-xl bg-secondary text-on-secondary flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                            <Sparkles className="w-4.5 h-4.5 text-on-secondary shrink-0" />
                           </div>
                           <div className="flex flex-col gap-3 w-full">
                             <div className="flex items-center justify-between">
@@ -368,12 +528,8 @@ export default function App() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 text-on-surface-variant">
-                                <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-primary">
-                                  content_copy
-                                </span>
-                                <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-primary">
-                                  share
-                                </span>
+                                <Copy className="w-4 h-4 cursor-pointer hover:text-primary transition-colors" />
+                                <Share2 className="w-4 h-4 cursor-pointer hover:text-primary transition-colors" />
                               </div>
                             </div>
                             <p className="font-body-sm text-body-sm text-on-surface leading-relaxed">
@@ -422,7 +578,7 @@ export default function App() {
                       <div className="col-span-4 p-6 bg-surface-container-low flex flex-col gap-4">
                         <div className="flex items-center justify-between pb-2">
                           <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[18px] text-primary">fact_check</span>
+                            <CheckSquare className="w-4.5 h-4.5 text-primary shrink-0" />
                             <span className="font-headline-sm text-headline-sm text-[14px] text-on-surface font-semibold">
                               Evidence Inspector
                             </span>
@@ -493,7 +649,7 @@ export default function App() {
                         </div>
 
                         <div className="mt-auto p-3 rounded-2xl bg-surface-container-lowest flex items-center gap-2.5 border border-outline-variant/20">
-                          <span className="material-symbols-outlined text-[20px] text-primary">verified</span>
+                          <BadgeCheck className="w-5 h-5 text-primary shrink-0" />
                           <div className="text-[12px] leading-tight text-on-surface">
                             <div className="font-semibold">Cryptographic Receipt Signed</div>
                             <span className="text-on-surface-variant text-[11px]">Hardware Enclave Node #EU-WEST-4</span>
@@ -578,7 +734,7 @@ export default function App() {
                   <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-300/70 flex flex-col justify-between transition-all group">
                     <div className="flex flex-col gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center text-primary group-hover:bg-primary-container group-hover:text-on-primary transition-colors">
-                        <span className="material-symbols-outlined text-[28px]">hub</span>
+                        <Network className="w-7 h-7" />
                       </div>
                       <h3 className="font-headline-md text-headline-md text-on-surface">
                         Hierarchical Vector Graph Traversal
@@ -605,7 +761,7 @@ export default function App() {
                   <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-300/70 flex flex-col justify-between transition-all group">
                     <div className="flex flex-col gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center text-secondary group-hover:bg-secondary group-hover:text-on-secondary transition-colors">
-                        <span className="material-symbols-outlined text-[28px]">token</span>
+                        <Coins className="w-7 h-7" />
                       </div>
                       <h3 className="font-headline-md text-headline-md text-on-surface">
                         Cryptographic Provenance Receipts
@@ -620,7 +776,7 @@ export default function App() {
                         0x74f2b9...e3089d71a
                       </div>
                       <div className="flex items-center gap-2 pt-1 text-[11px] text-secondary">
-                        <span className="material-symbols-outlined text-[14px]">done_all</span>
+                        <CheckCheck className="w-3.5 h-3.5" />
                         <span>Byte-Range Parity Validated</span>
                       </div>
                     </div>
@@ -630,7 +786,7 @@ export default function App() {
                   <div className="p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-slate-300/70 flex flex-col justify-between transition-all group">
                     <div className="flex flex-col gap-4">
                       <div className="w-14 h-14 rounded-2xl bg-surface-container flex items-center justify-center text-tertiary group-hover:bg-tertiary-container group-hover:text-on-tertiary transition-colors">
-                        <span className="material-symbols-outlined text-[28px]">lock_clock</span>
+                        <Clock className="w-7 h-7" />
                       </div>
                       <h3 className="font-headline-md text-headline-md text-on-surface">
                         Air-Gapped &amp; Sovereign Deployment
@@ -678,7 +834,7 @@ export default function App() {
                       <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-primary font-mono text-[11px] font-semibold border border-primary/20">
                         HALLUCINATION RATE
                       </span>
-                      <span className="material-symbols-outlined text-[18px] text-primary">verified_user</span>
+                      <ShieldCheck className="w-4.5 h-4.5 text-primary shrink-0" />
                     </div>
                     <div>
                       <div className="font-headline-md text-headline-md font-bold text-on-surface tracking-tight">
@@ -700,7 +856,7 @@ export default function App() {
                       <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-secondary font-mono text-[11px] font-semibold border border-secondary/20">
                         DETERMINISTIC LATENCY
                       </span>
-                      <span className="material-symbols-outlined text-[18px] text-secondary">speed</span>
+                      <Zap className="w-4.5 h-4.5 text-secondary shrink-0" />
                     </div>
                     <div>
                       <div className="font-headline-md text-headline-md font-bold text-secondary tracking-tight">
@@ -722,7 +878,7 @@ export default function App() {
                       <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-tertiary font-mono text-[11px] font-semibold border border-tertiary/20">
                         CRYPTOGRAPHIC PROOF
                       </span>
-                      <span className="material-symbols-outlined text-[18px] text-tertiary">pin</span>
+                      <MapPin className="w-4.5 h-4.5 text-tertiary shrink-0" />
                     </div>
                     <div>
                       <div className="font-headline-md text-headline-md font-bold text-on-surface tracking-tight">
@@ -744,7 +900,7 @@ export default function App() {
                       <span className="px-2.5 py-0.5 rounded-full bg-surface-container text-primary font-mono text-[11px] font-semibold border border-primary/20">
                         MULTI-HOP REASONING
                       </span>
-                      <span className="material-symbols-outlined text-[18px] text-primary">hub</span>
+                      <Network className="w-4.5 h-4.5 text-primary shrink-0" />
                     </div>
                     <div>
                       <div className="font-headline-md text-headline-md font-bold text-on-surface tracking-tight">
@@ -793,7 +949,7 @@ export default function App() {
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[20px] text-primary">radar</span>
+                            <Compass className="w-5 h-5 text-primary shrink-0" />
                             <span className="font-headline-sm text-headline-sm text-[15px] font-bold text-on-surface">
                               Grounding Architecture Radar &amp; Stress Test
                             </span>
@@ -858,7 +1014,7 @@ export default function App() {
                       <div className="flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-[20px] text-secondary">timeline</span>
+                            <Activity className="w-5 h-5 text-secondary shrink-0" />
                             <span className="font-headline-sm text-headline-sm text-[15px] font-bold text-on-surface">
                               Live Trace &amp; Proof Synthesis Timeline
                             </span>
@@ -919,7 +1075,7 @@ export default function App() {
                       </div>
                       <div className="p-3 rounded-xl bg-surface-container-low border border-slate-200/90 flex items-center justify-between text-xs font-label-sm">
                         <div className="flex items-center gap-1.5 text-on-surface font-mono text-[11px]">
-                          <span className="material-symbols-outlined text-[16px] text-primary">done_all</span>
+                          <CheckCheck className="w-4 h-4 text-primary shrink-0" />
                           <span>Pipeline Verified: 0 tokens ungrounded</span>
                         </div>
                         <span className="text-primary font-semibold font-mono text-[11px]">42ms Total</span>
@@ -1036,30 +1192,30 @@ export default function App() {
                       <div className="h-px bg-outline-variant/20 w-full"></div>
                       <div className="flex flex-col gap-3 font-body-sm text-body-sm text-on-surface">
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Up to 10,000 query verifications/mo</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Connect OpenAI, Anthropic &amp; Ollama</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Single-hop vector graph traversal</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Community Discord &amp; GitHub issues</span>
                         </div>
                       </div>
                     </div>
                     <div className="mt-8">
                       <a
-                        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-all border border-slate-300/70"
+                        className="group w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-all border border-slate-300/70"
                         href="#workbench-preview"
                       >
                         <span>Get Started Free</span>
-                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
                       </a>
                     </div>
                   </div>
@@ -1067,7 +1223,7 @@ export default function App() {
                   {/* Plan 2: Pro */}
                   <div className="p-8 lg:p-10 rounded-3xl bg-white/95 backdrop-blur-xl border-2 border-primary/40 flex flex-col justify-between relative shadow-md lg:-translate-y-4 lg:py-12">
                     <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-semibold uppercase tracking-wider shadow-sm flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[14px]">star</span>
+                      <Star className="w-3.5 h-3.5 fill-current shrink-0" />
                       <span>Most Popular</span>
                     </div>
                     <div className="flex flex-col gap-6">
@@ -1093,34 +1249,34 @@ export default function App() {
                       <div className="h-px bg-outline-variant/20 w-full"></div>
                       <div className="flex flex-col gap-3 font-body-sm text-body-sm text-on-surface">
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span className="font-semibold">Unlimited deterministic verifications</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>42ms p95 hardware enclave routing</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Multi-hop cryptographic Merkle proofs</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Corpus sync: GitHub, Notion, Confluence</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Dedicated Slack support channel</span>
                         </div>
                       </div>
                     </div>
                     <div className="mt-8">
                       <a
-                        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-primary text-on-primary hover:bg-secondary font-label-lg text-label-lg shadow-md transition-all"
+                        className="group w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-primary text-on-primary hover:bg-secondary font-label-lg text-label-lg shadow-md transition-all"
                         href="#workbench-preview"
                       >
                         <span>Start 14-Day Free Trial</span>
-                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
                       </a>
                     </div>
                   </div>
@@ -1146,30 +1302,30 @@ export default function App() {
                       <div className="h-px bg-outline-variant/20 w-full"></div>
                       <div className="flex flex-col gap-3 font-body-sm text-body-sm text-on-surface">
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>100% On-Premise &amp; Air-Gapped deploy</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Enforceable Zero Data Retention SLA</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>FIPS 140-3 &amp; SOC 2 Type II attestation</span>
                         </div>
                         <div className="flex items-center gap-2.5">
-                          <span className="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+                          <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                           <span>Custom fine-tuned embeddings &amp; 24/7 SLA</span>
                         </div>
                       </div>
                     </div>
                     <div className="mt-8">
                       <a
-                        className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-all border border-slate-300/70"
+                        className="group w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-on-surface font-label-lg text-label-lg transition-all border border-slate-300/70"
                         href="#workbench-preview"
                       >
                         <span>Contact Enterprise Sales</span>
-                        <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
                       </a>
                     </div>
                   </div>
@@ -1191,7 +1347,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="p-6 rounded-3xl bg-surface-container-lowest/80 backdrop-blur-xl shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-2.5 text-primary">
-                      <span className="material-symbols-outlined text-[20px]">key</span>
+                      <Key className="w-5 h-5 shrink-0" />
                       <h3 className="font-headline-sm text-headline-sm text-[16px] text-on-surface font-semibold">
                         How does BYO API key security work?
                       </h3>
@@ -1203,7 +1359,7 @@ export default function App() {
 
                   <div className="p-6 rounded-3xl bg-surface-container-lowest/80 backdrop-blur-xl shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-2.5 text-secondary">
-                      <span className="material-symbols-outlined text-[20px]">verified</span>
+                      <BadgeCheck className="w-5 h-5 shrink-0" />
                       <h3 className="font-headline-sm text-headline-sm text-[16px] text-on-surface font-semibold">
                         What is Cryptographic Merkle Provenance?
                       </h3>
@@ -1215,7 +1371,7 @@ export default function App() {
 
                   <div className="p-6 rounded-3xl bg-surface-container-lowest/80 backdrop-blur-xl shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-2.5 text-tertiary">
-                      <span className="material-symbols-outlined text-[20px]">cleaning_services</span>
+                      <Sparkles className="w-5 h-5 shrink-0" />
                       <h3 className="font-headline-sm text-headline-sm text-[16px] text-on-surface font-semibold">
                         What is your Zero Data Retention (ZDR) policy?
                       </h3>
@@ -1227,7 +1383,7 @@ export default function App() {
 
                   <div className="p-6 rounded-3xl bg-surface-container-lowest/80 backdrop-blur-xl shadow-sm flex flex-col gap-2 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-2.5 text-primary">
-                      <span className="material-symbols-outlined text-[20px]">cloud_off</span>
+                      <CloudOff className="w-5 h-5 shrink-0" />
                       <h3 className="font-headline-sm text-headline-sm text-[16px] text-on-surface font-semibold">
                         Can we run completely air-gapped on-premise?
                       </h3>
@@ -1271,11 +1427,11 @@ export default function App() {
                       required
                     />
                     <button
-                      className="whitespace-nowrap px-7 py-3.5 rounded-full bg-primary text-on-primary font-label-lg text-label-lg hover:bg-secondary transition-all flex items-center justify-center gap-2 shrink-0 shadow-md cursor-pointer"
+                      className="group whitespace-nowrap px-7 py-3.5 rounded-full bg-primary text-on-primary font-label-lg text-label-lg hover:bg-secondary transition-all flex items-center justify-center gap-2 shrink-0 shadow-md cursor-pointer"
                       type="submit"
                     >
                       <span>Deploy Sandbox</span>
-                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                      <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
                     </button>
                   </form>
                   <div className="flex flex-wrap items-center justify-center gap-y-2 gap-x-3 text-on-surface-variant font-label-sm text-label-sm">
@@ -1297,11 +1453,7 @@ export default function App() {
             <div className="grid grid-cols-5 gap-space-lg pb-10 border-b border-outline-variant/20">
               <div className="col-span-2 flex flex-col gap-space-sm pr-space-lg">
                 <div className="flex items-center gap-space-sm">
-                  <img
-                    alt="Liora Logo"
-                    className="h-7 w-auto object-contain"
-                    src="https://lh3.googleusercontent.com/aida/AEtjO1UAzCtz0qsekGSzPoEyo2D10_mqR5uWpVHlCjAwDWtjalx5mRpNkYSmyNCIzaFOwHqqxF1Vf4nqj4tddVvONyvzE1L-LqOUwQH8DumkXwNbFWBt2F0b_RsZJc1gHK_Yk_P0DAz1KRFo4OYt4bwD9TXvExucE2zgEdVKLpncSSNzUN2wtqSWVPcVAyHztNudPEfSDmmDvV5Ah3AYBVOQPLNeLDlMWzbFuaEwxznbj78-uARAmJal7Je5guo"
-                  />
+                  <LioraLogo className="h-7 w-7" />
                   <span className="font-headline-sm text-headline-sm tracking-tight text-on-surface">
                     Liora
                   </span>
@@ -1361,15 +1513,15 @@ export default function App() {
                 </span>
                 <div className="flex flex-col gap-1.5 pt-0.5">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface font-label-sm text-label-sm w-fit">
-                    <span className="material-symbols-outlined text-[14px] text-primary">verified_user</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>SOC2 Type II</span>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface font-label-sm text-label-sm w-fit">
-                    <span className="material-symbols-outlined text-[14px] text-primary">health_and_safety</span>
+                    <HeartHandshake className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>HIPAA Ready</span>
                   </div>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container border border-outline-variant/30 text-on-surface font-label-sm text-label-sm w-fit">
-                    <span className="material-symbols-outlined text-[14px] text-primary">lock</span>
+                    <Lock className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span>FIPS 140-3</span>
                   </div>
                 </div>
@@ -1423,6 +1575,5 @@ export default function App() {
         </section>
       </div>
     </div>
-    </>
   );
 }

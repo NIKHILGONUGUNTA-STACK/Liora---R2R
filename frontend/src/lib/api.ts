@@ -1,8 +1,13 @@
+import { clearSession, getSession } from './session';
+
 export const API_BASE_URL = '/api/v1';
 
-export const getAuthToken = () => localStorage.getItem('token');
+export const getAuthToken = () => {
+  const session = getSession();
+  return session ? session.token : localStorage.getItem('token');
+};
 export const setAuthToken = (token: string) => localStorage.setItem('token', token);
-export const removeAuthToken = () => localStorage.removeItem('token');
+export const removeAuthToken = () => clearSession();
 
 interface FetchOptions extends RequestInit {
   requireAuth?: boolean;
@@ -28,7 +33,7 @@ export const apiFetch = async (endpoint: string, options: FetchOptions = {}) => 
   
   if (!response.ok) {
     if (response.status === 401) {
-      removeAuthToken();
+      clearSession();
       // Handle unauthorized
       window.dispatchEvent(new Event('unauthorized'));
     }

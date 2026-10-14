@@ -26,50 +26,51 @@ def create_test_pdf() -> bytes:
     writer.write(pdf_bytes)
     return pdf_bytes.getvalue()
 
-def test_api_upload_valid_pdf(db_session):
+def test_api_upload_valid_pdf(db_session, test_user, auth_headers):
     pdf_bytes = create_test_pdf()
     
     files = {'file': ('test.pdf', pdf_bytes, 'application/pdf')}
-    response = client.post("/api/v1/documents", files=files)
+    response = client.post("/api/v1/documents", files=files, headers=auth_headers)
     
-    assert response.status_code == 200
+    assert response.status_code == 202
     data = response.json()
     assert data['filename'] == 'test.pdf'
-    assert data['status'] == 'ready'
+    assert data['status'] == 'uploaded'
     assert 'file_hash' in data
-    assert data['doc_metadata']['page_count'] == 2
 
-def test_api_upload_non_pdf():
+def test_api_upload_non_pdf(test_user, auth_headers):
     files = {'file': ('test.txt', b'This is not a pdf', 'text/plain')}
-    response = client.post("/api/v1/documents", files=files)
+    response = client.post("/api/v1/documents", files=files, headers=auth_headers)
     
     assert response.status_code == 400
     assert "Only PDF files are supported" in response.json()['detail']
 
-def test_api_upload_empty_pdf():
+def test_api_upload_empty_pdf(test_user, auth_headers):
     files = {'file': ('empty.pdf', b'', 'application/pdf')}
-    response = client.post("/api/v1/documents", files=files)
+    response = client.post("/api/v1/documents", files=files, headers=auth_headers)
     
     assert response.status_code == 400
     assert "File is empty" in response.json()['detail']
 
-def test_api_duplicate_upload():
+def test_api_duplicate_upload(test_user, auth_headers):
     pdf_bytes = create_test_pdf()
     
     files1 = {'file': ('duplicate.pdf', pdf_bytes, 'application/pdf')}
-    response1 = client.post("/api/v1/documents", files=files1)
-    assert response1.status_code == 200
+    response1 = client.post("/api/v1/documents", files=files1, headers=auth_headers)
+    assert response1.status_code == 202
     id1 = response1.json()['id']
     
     files2 = {'file': ('duplicate_upload.pdf', pdf_bytes, 'application/pdf')}
-    response2 = client.post("/api/v1/documents", files=files2)
-    assert response2.status_code == 200
+    response2 = client.post("/api/v1/documents", files=files2, headers=auth_headers)
+    assert response2.status_code == 202
     id2 = response2.json()['id']
     
     # Should return the exact same document ID because of hash match
     assert id1 == id2
 
-def test_api_get_documents():
-    response = client.get("/api/v1/documents")
+def test_api_get_documents(test_user, auth_headers):
+    pdf_bytes = create_test_pdf()
+    client.post("/api/v1/documents", files={'file': ('test.pdf', pdf_bytes, 'application/pdf')}, headers=auth_headers)
+    response = client.get("/api/v1/documents", headers=auth_headers)
     assert response.status_code == 200
     assert len(response.json()) > 0

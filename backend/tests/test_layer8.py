@@ -10,7 +10,7 @@ from app.retrieval.retriever import VectorRetriever
 from tests.test_layer6 import FakeEmbeddingProvider
 from pydantic import ValidationError
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def db_session():
     session = SessionLocal()
     yield session
@@ -19,13 +19,13 @@ def db_session():
     session.commit()
     session.close()
 
-@pytest.fixture(scope="module")
-def seed_data(db_session):
+@pytest.fixture(scope="function")
+def seed_data(db_session, test_user):
     repo = DocumentRepository(db_session)
     chunk_repo = DocumentChunkRepository(db_session)
     
     # Create test document
-    doc = repo.create_document(DocumentCreate(filename="Aegis.pdf", file_hash="hash_aegis"))
+    doc = repo.create_document(DocumentCreate(owner_id=test_user.id, filename="Aegis.pdf", file_hash="hash_aegis"))
     
     chunks = [
         DocumentChunkCreate(
@@ -71,15 +71,15 @@ def test_1_valid_query(retriever, seed_data):
     finally:
         retriever.provider.embed_text = original_embed_text
 
-def test_2_empty_query():
+def test_2_empty_query(test_user):
     with pytest.raises(ValidationError):
         SearchRequest(query="")
 
-def test_3_whitespace_query():
+def test_3_whitespace_query(test_user):
     with pytest.raises(ValidationError):
         SearchRequest(query="   ")
 
-def test_4_invalid_top_k():
+def test_4_invalid_top_k(test_user):
     with pytest.raises(ValidationError):
         SearchRequest(query="test", top_k=0)
     with pytest.raises(ValidationError):
@@ -94,7 +94,7 @@ def test_5_correct_ordering(retriever, seed_data):
     # Similarity should be 1 - distance
     assert abs(resp.results[0].similarity - (1.0 - resp.results[0].distance)) < 1e-5
 
-def test_6_null_embeddings_excluded(db_session, retriever, seed_data):
+def test_6_null_embeddings_excluded(db_session, retriever, seed_data, test_user):
     chunk_repo = DocumentChunkRepository(db_session)
     chunk = DocumentChunkCreate(
         document_id=seed_data.id,
@@ -130,7 +130,7 @@ def test_8_latency_measured(retriever, seed_data):
     assert resp.db_search_latency_ms >= 0
     assert resp.latency_ms >= resp.embedding_latency_ms + resp.db_search_latency_ms
 
-def test_9_dimension_validation(db_session):
+def test_9_dimension_validation(db_session, test_user):
     provider = FakeEmbeddingProvider(dimension=1024)
     # Monkeypatch to return bad dimension
     provider.embed_text = lambda x: [1.0] * 1025
