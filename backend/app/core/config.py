@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
 
+    # SMTP Email Configuration
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = "noreply.liora@gmail.com"
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply.liora@gmail.com"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

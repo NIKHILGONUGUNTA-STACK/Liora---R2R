@@ -28,6 +28,7 @@ class Token(BaseModel):
 
 class SendOTPRequest(BaseModel):
     email: EmailStr
+    purpose: Optional[str] = "create"  # "create" or "reset"
 
 class VerifyOTPRequest(BaseModel):
     email: EmailStr

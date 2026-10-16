@@ -207,14 +207,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const resp = await fetch('/api/v1/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: createEmail.trim().toLowerCase() }),
+        body: JSON.stringify({ email: createEmail.trim().toLowerCase(), purpose: 'create' }),
       });
       if (!resp.ok) {
         const data = await resp.json().catch(() => null);
-        console.warn('Backend send-otp responded with error:', data);
+        setCreateLoading(false);
+        setCreateError(data?.detail || 'Failed to dispatch verification code. Please check that backend is running.');
+        return;
       }
     } catch (err) {
       console.warn('Backend send-otp request failed:', err);
+      setCreateLoading(false);
+      setCreateError('Could not reach backend server (502 / Connection Refused). Please verify backend is running on port 8000.');
+      return;
     }
 
     setCreateLoading(false);
@@ -266,8 +271,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     e.preventDefault();
     setCreateError(null);
 
-    if (createPassword.length < 6) {
-      setCreateError('Password must be at least 6 characters long.');
+    const rules = checkPasswordComplexity(createPassword);
+    if (!rules.isValid) {
+      setCreateError('Password must be at least 8 characters long and contain letters, numbers, and special characters.');
       return;
     }
     if (createPassword !== createConfirmPassword) {
@@ -301,6 +307,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setCreateStep('success');
         if (onSuccess) onSuccess(createEmail);
         return;
+      } else {
+        const errData = await resp.json().catch(() => null);
+        setCreateLoading(false);
+        setCreateError(errData?.detail || 'Failed to complete account registration.');
+        return;
       }
     } catch {
       // Backend offline fallback
@@ -330,13 +341,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setForgotLoading(true);
 
     try {
-      await fetch('/api/v1/auth/send-otp', {
+      const resp = await fetch('/api/v1/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() }),
+        body: JSON.stringify({ email: forgotEmail.trim().toLowerCase(), purpose: 'reset' }),
       });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => null);
+        setForgotLoading(false);
+        setForgotError(data?.detail || 'Failed to dispatch reset code. Please check that backend is running.');
+        return;
+      }
     } catch {
-      // Backend offline fallback
+      setForgotLoading(false);
+      setForgotError('Could not reach backend server (502 / Connection Refused). Please verify backend is running on port 8000.');
+      return;
     }
 
     setForgotLoading(false);
@@ -386,8 +405,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     e.preventDefault();
     setForgotError(null);
 
-    if (forgotPassword.length < 6) {
-      setForgotError('Password must be at least 6 characters long.');
+    const rules = checkPasswordComplexity(forgotPassword);
+    if (!rules.isValid) {
+      setForgotError('Password must be at least 8 characters long and contain letters, numbers, and special characters.');
       return;
     }
     if (forgotPassword !== forgotConfirmPassword) {
@@ -398,7 +418,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setForgotLoading(true);
 
     try {
-      const resp = await fetch('/api/v1/auth/verify-otp', {
+      const resp = await fetch('/api/v1/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -411,6 +431,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (resp.ok) {
         setForgotLoading(false);
         setForgotStep('success');
+        return;
+      } else {
+        const errData = await resp.json().catch(() => null);
+        setForgotLoading(false);
+        setForgotError(errData?.detail || 'Failed to reset password. Please check your verification code.');
         return;
       }
     } catch {
@@ -466,6 +491,45 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       {subtext && <p className="text-base text-slate-500 mt-2 max-w-md leading-relaxed">{subtext}</p>}
     </div>
   );
+
+  // Password complexity checker
+  const checkPasswordComplexity = (pass: string) => ({
+    hasMinLength: pass.length >= 8,
+    hasLetters: /[A-Za-z]/.test(pass),
+    hasDigits: /\d/.test(pass),
+    hasSpecial: /[^A-Za-z0-9]/.test(pass),
+    isValid: pass.length >= 8 && /[A-Za-z]/.test(pass) && /\d/.test(pass) && /[^A-Za-z0-9]/.test(pass),
+  });
+
+  // Password Requirements Pill/List Component
+  const PasswordRequirementsList = ({ password }: { password: string }) => {
+    const rules = checkPasswordComplexity(password);
+    const items = [
+      { label: '8+ characters', met: rules.hasMinLength },
+      { label: 'Letters (a-z, A-Z)', met: rules.hasLetters },
+      { label: 'Numbers (0-9)', met: rules.hasDigits },
+      { label: 'Special character (!@#$...)', met: rules.hasSpecial },
+    ];
+
+    return (
+      <div className="grid grid-cols-2 gap-2 p-3 rounded-xl border border-slate-200/90 bg-slate-50/80 text-xs text-slate-600">
+        {items.map((item, idx) => (
+          <div key={idx} className="flex items-center gap-1.5">
+            <div
+              className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors ${
+                item.met ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'
+              }`}
+            >
+              <Check className="w-2.5 h-2.5 stroke-[3]" />
+            </div>
+            <span className={item.met ? 'text-slate-800 font-semibold' : 'text-slate-500'}>
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#0b1c30] flex flex-col font-['Plus_Jakarta_Sans',sans-serif] antialiased selection:bg-blue-500 selection:text-white">
