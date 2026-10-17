@@ -12,28 +12,30 @@ import {
   deleteStoredChatMessages,
   generateUniqueChatId,
 } from '../../lib/chatStorage';
+import { parseCurrentRoute, navigateTo, getPathForTab } from '../../lib/routes';
 
 interface ProductViewProps {
   session: UserSession | null;
   onGoToLanding: () => void;
   onLogout: () => void;
+  initialTab?: string;
+  initialChatId?: string;
 }
 
 export const ProductView: React.FC<ProductViewProps> = ({
   session,
   onGoToLanding,
   onLogout,
+  initialTab,
+  initialChatId,
 }) => {
   const userKey = getUserStorageKey(session?.email);
 
-  // Synchronize initial tab and chat from URL query parameters if available
+  // Synchronize initial tab and chat from route or props
   const [currentTab, setCurrentTab] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlTab = params.get('tab');
-      if (urlTab) return urlTab;
-    }
-    return 'chat-and-research';
+    if (initialTab) return initialTab;
+    const parsed = parseCurrentRoute();
+    return parsed.tab || 'chat-and-research';
   });
 
   const [chatSessions, setChatSessions] = useState<ChatSessionItem[]>(() => {
@@ -41,11 +43,10 @@ export const ProductView: React.FC<ProductViewProps> = ({
   });
 
   const [activeChatId, setActiveChatId] = useState<string | undefined>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlChat = params.get('chat');
-      if (urlChat) return urlChat;
-    }
+    if (initialChatId) return initialChatId;
+    const parsed = parseCurrentRoute();
+    if (parsed.chatId) return parsed.chatId;
+
     const stored = getStoredActiveChatId(userKey);
     const sessions = getStoredChatSessions(userKey);
     if (stored && sessions.some((s) => s.id === stored)) {
@@ -55,26 +56,35 @@ export const ProductView: React.FC<ProductViewProps> = ({
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Synchronize browser URL query parameters with active chat and active tab
+  // Synchronize browser URL to clean path-based URL (/chat/:chatId, /overview, /documents, etc.)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('view', 'product');
-      if (currentTab === 'chat-and-research') {
-        url.searchParams.delete('tab');
-        if (activeChatId) {
-          url.searchParams.set('chat', activeChatId);
-        } else {
-          url.searchParams.delete('chat');
-        }
-      } else {
-        url.searchParams.delete('chat');
-        url.searchParams.set('tab', currentTab);
-      }
-      window.history.replaceState({}, '', url.toString());
-    } catch (_) {}
+    const targetPath = getPathForTab(currentTab, activeChatId);
+    if (window.location.pathname !== targetPath || window.location.search.includes('view=')) {
+      const searchParams = new URLSearchParams(window.location.search);
+      searchParams.delete('view');
+      searchParams.delete('tab');
+      searchParams.delete('chat');
+      const queryStr = searchParams.toString();
+      const finalUrl = queryStr ? `${targetPath}?${queryStr}` : targetPath;
+      window.history.replaceState(null, '', finalUrl);
+    }
   }, [currentTab, activeChatId]);
+
+  // Handle browser Back / Forward navigation (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      const parsed = parseCurrentRoute();
+      if (parsed.tab) {
+        setCurrentTab(parsed.tab);
+      }
+      if (parsed.chatId) {
+        setActiveChatId(parsed.chatId);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Sync state if userKey changes (e.g. login as different user)
   useEffect(() => {
@@ -128,6 +138,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
     setActiveChatId(newChat.id);
     saveStoredActiveChatId(userKey, newChat.id);
     setCurrentTab('chat-and-research');
+    navigateTo(`/chat/${newChat.id}`);
   };
 
   const handlePinChat = (id: string) => {
@@ -147,6 +158,11 @@ export const ProductView: React.FC<ProductViewProps> = ({
         const nextId = updated[0]?.id || undefined;
         setActiveChatId(nextId);
         saveStoredActiveChatId(userKey, nextId || null);
+        if (nextId) {
+          navigateTo(`/chat/${nextId}`);
+        } else {
+          navigateTo('/chat');
+        }
       }
       saveStoredChatSessions(userKey, updated);
       deleteStoredChatMessages(id);
@@ -175,9 +191,14 @@ export const ProductView: React.FC<ProductViewProps> = ({
         currentTab={currentTab}
         onTabChange={(tab) => {
           setCurrentTab(tab);
-          // If user clicks chat-and-research and there are no chats, auto-create a session
-          if (tab === 'chat-and-research' && chatSessions.length === 0 && !activeChatId) {
-            handleNewChat();
+          if (tab === 'chat-and-research') {
+            if (chatSessions.length === 0 && !activeChatId) {
+              handleNewChat();
+            } else {
+              navigateTo(activeChatId ? `/chat/${activeChatId}` : '/chat');
+            }
+          } else {
+            navigateTo(getPathForTab(tab));
           }
         }}
         chatSessions={chatSessions}
@@ -186,6 +207,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
           setActiveChatId(id);
           saveStoredActiveChatId(userKey, id);
           setCurrentTab('chat-and-research');
+          navigateTo(`/chat/${id}`);
         }}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}

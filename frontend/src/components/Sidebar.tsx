@@ -122,7 +122,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <PanelLeft className="w-5 h-5" />
           </button>
 
-          <div className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+          <div
+            onClick={onGoToLanding}
+            className="w-7 h-7 rounded-lg overflow-hidden shrink-0 flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+            title="Back to Home"
+          >
             <LioraLogo size={28} />
           </div>
 
@@ -229,7 +233,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* HEADER: Clean Logo & Collapse Icon                      */}
         {/* ======================================================= */}
         <div className="h-14 px-3.5 flex items-center justify-between border-b border-[#262626] shrink-0">
-          <div className="flex items-center gap-2.5 overflow-hidden">
+          <div
+            onClick={onGoToLanding}
+            className="flex items-center gap-2.5 overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
+            title="Back to Home"
+          >
             <LioraLogo size={28} />
             <span className="text-[15px] font-bold text-white tracking-tight leading-none">
               Liora

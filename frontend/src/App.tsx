@@ -33,42 +33,35 @@ import {
 import { getSession, clearSession, UserSession } from './lib/session';
 import { AuthPage, AuthMode } from './views/auth/AuthPage';
 import { ProductView } from './views/product/ProductView';
+import { parseCurrentRoute, navigateTo, ParsedRoute } from './lib/routes';
 
 export default function App() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [scale, setScale] = useState(1);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
   const [session, setSession] = useState<UserSession | null>(() => getSession());
-  const [view, setView] = useState<'landing' | 'auth' | 'product'>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const v = params.get('view');
-      if (v === 'auth') return 'auth';
-      if (v === 'product') return 'product';
-    }
-    return 'landing';
-  });
-  const [authMode, setAuthMode] = useState<AuthMode>('signin');
+  const [route, setRoute] = useState<ParsedRoute>(() => parseCurrentRoute());
+  const view = route.view;
+  const authMode = route.authMode || 'signin';
   const [isPastGradient, setIsPastGradient] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // Sync dark mode class & URL parameter with current view (Landing & Auth are light mode as in design, Overview & Chat are dark mode)
+  // Sync route on browser Back / Forward (popstate)
+  useEffect(() => {
+    const handlePopState = () => {
+      setRoute(parseCurrentRoute());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Sync dark mode class with current view
   useEffect(() => {
     if (view === 'landing' || view === 'auth') {
       document.documentElement.classList.remove('dark');
     } else {
       document.documentElement.classList.add('dark');
     }
-
-    try {
-      const url = new URL(window.location.href);
-      if (view === 'landing') {
-        url.searchParams.delete('view');
-      } else {
-        url.searchParams.set('view', view);
-      }
-      window.history.replaceState({}, '', url.toString());
-    } catch (_) {}
   }, [view]);
 
   // Sync session on custom auth events
@@ -151,9 +144,10 @@ export default function App() {
         initialMode={authMode}
         onSuccess={(email) => {
           setSession(getSession());
+          navigateTo('/chat');
         }}
-        onGoToLanding={() => setView('landing')}
-        onOpenProduct={() => setView('product')}
+        onGoToLanding={() => navigateTo('/')}
+        onOpenProduct={() => navigateTo('/chat')}
       />
     );
   }
@@ -163,11 +157,13 @@ export default function App() {
     return (
       <ProductView
         session={session}
-        onGoToLanding={() => setView('landing')}
+        initialTab={route.tab}
+        initialChatId={route.chatId}
+        onGoToLanding={() => navigateTo('/')}
         onLogout={() => {
           clearSession();
           setSession(null);
-          setView('landing');
+          navigateTo('/');
         }}
       />
     );
@@ -271,8 +267,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setAuthMode('signin');
-                  setView('auth');
+                  navigateTo('/login');
                 }}
                 className={`px-4 py-2 rounded-full font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out cursor-pointer ${
                   isPastGradient
@@ -287,10 +282,9 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   if (session) {
-                    setView('product');
+                    navigateTo('/chat');
                   } else {
-                    setAuthMode('signin');
-                    setView('auth');
+                    navigateTo('/login');
                   }
                 }}
                 className={`group inline-flex items-center gap-2 px-space-lg py-2.5 rounded-full font-label-lg text-label-lg border transition-colors duration-700 ease-in-out cursor-pointer shadow-none ${
@@ -306,10 +300,9 @@ export default function App() {
               <button 
                 onClick={() => {
                   if (session) {
-                    setView('product');
+                    navigateTo('/chat');
                   } else {
-                    setAuthMode('signin');
-                    setView('auth');
+                    navigateTo('/login');
                   }
                 }}
                 className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-700 ease-in-out cursor-pointer ${
