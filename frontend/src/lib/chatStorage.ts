@@ -14,13 +14,15 @@ export const getUserStorageKey = (userEmail?: string): string => {
 };
 
 /**
- * Generate a cryptographically unique chat ID to eliminate duplicate React keys
+ * Generate a UUID-formatted chat ID matching present length (18 chars: e.g. 692576fc-bba4-8323)
  */
 export const generateUniqueChatId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `chat-${crypto.randomUUID()}`;
+    // Standard UUID is 8-4-4-4-12. Slice first 18 characters (8-4-4) for clean compact length
+    return crypto.randomUUID().slice(0, 18);
   }
-  return `chat-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+  return `${s4()}${s4()}-${s4()}-${s4()}`;
 };
 
 /**
