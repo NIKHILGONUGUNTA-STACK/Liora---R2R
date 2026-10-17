@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # LLM & Embeddings
     GEMINI_API_KEY: str = Field(..., description="Gemini API Key")
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.8-flash"
     GEMINI_TEMPERATURE: float = 0.0
     GEMINI_MAX_OUTPUT_TOKENS: int = 2048
     GEMINI_TIMEOUT: float = 30.0
@@ -87,6 +87,15 @@ class Settings(BaseSettings):
     SMTP_USER: str = "noreply.liora@gmail.com"
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = "noreply.liora@gmail.com"
+
+    # Layer 1 Raw File Storage Configuration (Local Disk & Cloudflare R2 / S3)
+    STORAGE_PROVIDER: str = "local"  # "local" or "s3"
+    STORAGE_LOCAL_DIR: str = "storage/documents"
+    S3_ENDPOINT_URL: str = ""        # e.g. "https://<account_id>.r2.cloudflarestorage.com"
+    S3_BUCKET_NAME: str = "liora-documents"
+    S3_ACCESS_KEY_ID: str = ""
+    S3_SECRET_ACCESS_KEY: str = ""
+    S3_REGION_NAME: str = "auto"     # "auto" for Cloudflare R2, "us-east-1" for AWS S3
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

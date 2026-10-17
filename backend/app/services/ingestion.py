@@ -89,8 +89,12 @@ class DocumentIngestionService:
         file_filename = doc.filename
         
         try:
-            # 6. Parse PDF
-            parsed_doc = self.parser.parse(storage_path)
+            # 6. Parse PDF (supports both local disk path and Cloudflare R2 / S3 stream)
+            if storage_path.startswith("s3://"):
+                file_stream = self.storage.open(storage_path)
+                parsed_doc = self.parser.parse(file_stream)
+            else:
+                parsed_doc = self.parser.parse(storage_path)
             
             # 7. Clean Text and Normalize Metadata
             from app.services.text_cleaner import DocumentTextCleaner

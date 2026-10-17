@@ -18,12 +18,14 @@ export type AuthMode = 'signin' | 'create' | 'forgot';
 interface AuthPageProps {
   initialMode?: AuthMode;
   onGoToLanding: () => void;
+  onOpenProduct?: () => void;
   onSuccess?: (email: string) => void;
 }
 
 export const AuthPage: React.FC<AuthPageProps> = ({
   initialMode = 'signin',
   onGoToLanding,
+  onOpenProduct,
   onSuccess,
 }) => {
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -620,20 +622,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       subtext={`Authenticated as ${signInEmail}. Your session is active and verified.`}
                     />
                     <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSignInSuccess(false);
-                          setSignInPassword('');
-                        }}
-                        className="flex-1 h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer transition-colors"
-                      >
-                        Sign in as different user
-                      </button>
+                      {onOpenProduct && (
+                        <button
+                          type="button"
+                          onClick={onOpenProduct}
+                          className="flex-1 h-12 rounded-xl bg-[#0b1c30] hover:bg-slate-800 text-sm font-semibold text-white cursor-pointer transition-colors"
+                        >
+                          Enter Workspace →
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={onGoToLanding}
-                        className="flex-1 h-12 rounded-xl bg-[#0b1c30] hover:bg-slate-800 text-sm font-semibold text-white cursor-pointer transition-colors"
+                        className="flex-1 h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer transition-colors"
                       >
                         Return to landing page
                       </button>
@@ -1031,22 +1032,19 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                       subtext={`Welcome, ${name}! Your account credentials and verification session are ready.`}
                     />
                     <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMode('signin');
-                          setSignInEmail(createEmail);
-                          setSignInSuccess(false);
-                          setCreateStep('details');
-                        }}
-                        className="flex-1 h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer transition-colors"
-                      >
-                        Go to Sign In
-                      </button>
+                      {onOpenProduct && (
+                        <button
+                          type="button"
+                          onClick={onOpenProduct}
+                          className="flex-1 h-12 rounded-xl bg-[#0b1c30] hover:bg-slate-800 text-sm font-semibold text-white cursor-pointer transition-colors"
+                        >
+                          Enter Workspace →
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={onGoToLanding}
-                        className="flex-1 h-12 rounded-xl bg-[#0b1c30] hover:bg-slate-800 text-sm font-semibold text-white cursor-pointer transition-colors"
+                        className="flex-1 h-12 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 cursor-pointer transition-colors"
                       >
                         Return to landing page
                       </button>

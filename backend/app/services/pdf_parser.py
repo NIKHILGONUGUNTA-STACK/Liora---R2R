@@ -1,6 +1,6 @@
 from pypdf import PdfReader
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union, BinaryIO
 from app.core.logging import logger
 
 class ParsedPage(BaseModel):
@@ -12,10 +12,10 @@ class ParsedDocument(BaseModel):
     pages: List[ParsedPage]
 
 class PDFParserService:
-    def parse(self, file_path: str) -> ParsedDocument:
-        logger.info(f"Parsing PDF document: {file_path}")
+    def parse(self, file_source: Union[str, BinaryIO]) -> ParsedDocument:
+        logger.info(f"Parsing PDF document from source: {type(file_source)}")
         try:
-            reader = PdfReader(file_path)
+            reader = PdfReader(file_source)
             
             # Extract safe metadata
             pdf_metadata = {}

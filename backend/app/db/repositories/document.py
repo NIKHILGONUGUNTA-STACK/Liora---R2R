@@ -76,6 +76,15 @@ class DocumentChunkRepository:
         return db_chunk
 
     def create_chunks_batch(self, chunks_in: List[DocumentChunkCreate]) -> List[DocumentChunk]:
+        if not chunks_in:
+            return []
+        
+        # Ensure idempotency: delete existing chunks for this document before inserting
+        doc_id = chunks_in[0].document_id
+        from sqlalchemy import delete
+        self.session.execute(delete(DocumentChunk).where(DocumentChunk.document_id == doc_id))
+        self.session.commit()
+
         db_chunks = []
         for chunk_in in chunks_in:
             kwargs = {

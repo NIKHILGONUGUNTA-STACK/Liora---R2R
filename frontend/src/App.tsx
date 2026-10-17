@@ -32,19 +32,19 @@ import {
 } from 'lucide-react';
 import { getSession, clearSession, UserSession } from './lib/session';
 import { AuthPage, AuthMode } from './views/auth/AuthPage';
+import { ProductView } from './views/product/ProductView';
 
 export default function App() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [scale, setScale] = useState(1);
   const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
   const [session, setSession] = useState<UserSession | null>(() => getSession());
-  const [view, setView] = useState<'landing' | 'auth'>(() => {
+  const [view, setView] = useState<'landing' | 'auth' | 'product'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const v = params.get('view');
-      if (v === 'auth') {
-        return 'auth';
-      }
+      if (v === 'auth') return 'auth';
+      if (v === 'product') return 'product';
     }
     return 'landing';
   });
@@ -151,9 +151,24 @@ export default function App() {
         initialMode={authMode}
         onSuccess={(email) => {
           setSession(getSession());
-          // Stay on auth page showing green tick, as explicitly requested
         }}
         onGoToLanding={() => setView('landing')}
+        onOpenProduct={() => setView('product')}
+      />
+    );
+  }
+
+  // If user is in Product Workspace (Dark Mode, ChatGPT style)
+  if (view === 'product') {
+    return (
+      <ProductView
+        session={session}
+        onGoToLanding={() => setView('landing')}
+        onLogout={() => {
+          clearSession();
+          setSession(null);
+          setView('landing');
+        }}
       />
     );
   }
@@ -271,8 +286,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setAuthMode('create');
-                  setView('auth');
+                  if (session) {
+                    setView('product');
+                  } else {
+                    setAuthMode('signin');
+                    setView('auth');
+                  }
                 }}
                 className={`group inline-flex items-center gap-2 px-space-lg py-2.5 rounded-full font-label-lg text-label-lg border transition-colors duration-700 ease-in-out cursor-pointer shadow-none ${
                   isPastGradient
@@ -286,8 +305,12 @@ export default function App() {
               </button>
               <button 
                 onClick={() => {
-                  setAuthMode('signin');
-                  setView('auth');
+                  if (session) {
+                    setView('product');
+                  } else {
+                    setAuthMode('signin');
+                    setView('auth');
+                  }
                 }}
                 className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-700 ease-in-out cursor-pointer ${
                   isPastGradient
