@@ -14,14 +14,35 @@ export const getUserStorageKey = (userEmail?: string): string => {
 };
 
 /**
- * Load persisted chat sessions for the user from localStorage
+ * Generate a cryptographically unique chat ID to eliminate duplicate React keys
+ */
+export const generateUniqueChatId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `chat-${crypto.randomUUID()}`;
+  }
+  return `chat-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+};
+
+/**
+ * Load persisted chat sessions for the user from localStorage (guaranteed deduplication)
  */
 export const getStoredChatSessions = (userKey: string): ChatSessionItem[] => {
   try {
     const raw = localStorage.getItem(`${SESSIONS_KEY_PREFIX}${userKey}`);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    
+    // Deduplicate sessions by ID to prevent React duplicate key warnings
+    const seen = new Set<string>();
+    const uniqueSessions: ChatSessionItem[] = [];
+    for (const item of parsed) {
+      if (item && item.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        uniqueSessions.push(item);
+      }
+    }
+    return uniqueSessions;
   } catch (err) {
     console.error('Failed to load stored chat sessions:', err);
     return [];
@@ -29,16 +50,22 @@ export const getStoredChatSessions = (userKey: string): ChatSessionItem[] => {
 };
 
 /**
- * Save chat sessions to localStorage
+ * Save chat sessions to localStorage (deduplicated)
  */
 export const saveStoredChatSessions = (
   userKey: string,
   sessions: ChatSessionItem[]
 ): void => {
   try {
+    const seen = new Set<string>();
+    const uniqueSessions = sessions.filter((s) => {
+      if (!s || !s.id || seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
     localStorage.setItem(
       `${SESSIONS_KEY_PREFIX}${userKey}`,
-      JSON.stringify(sessions)
+      JSON.stringify(uniqueSessions)
     );
   } catch (err) {
     console.error('Failed to save chat sessions:', err);

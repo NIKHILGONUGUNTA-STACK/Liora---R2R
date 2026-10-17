@@ -97,8 +97,7 @@ def chat(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(
-            f"Error during chat",
+            f"Error during chat: {e}",
             extra={"request_id": request_id, "error_type": type(e).__name__, "status": "error"}
         )
-        # Convert all other exceptions to a generic 500 error to avoid leaking traces
-        raise HTTPException(status_code=500, detail="An internal server error occurred.")
+        raise HTTPException(status_code=500, detail=f"Engine query failed: {str(e)}")

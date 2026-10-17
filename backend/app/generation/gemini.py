@@ -24,10 +24,7 @@ class GeminiProvider(LLMProvider):
         self.serializer = ContextSerializer()
         
         if self.api_key and self.api_key != "your_api_key_here":
-            self.client = genai.Client(
-                api_key=self.api_key,
-                http_options={"timeout": self.timeout}
-            )
+            self.client = genai.Client(api_key=self.api_key)
         else:
             self.client = None
             logger.error("GEMINI_API_KEY is not correctly set.")
@@ -54,80 +51,84 @@ class GeminiProvider(LLMProvider):
         serialized_context = self.serializer.serialize(context)
         system_instruction = GROUNDED_SYSTEM_PROMPT.format(serialized_context=serialized_context)
         
-        # 3. Call Gemini with Bounded Retry
-        max_attempts = 3
-        attempt = 0
-        base_delay = 1.0
+        # 3. Call Gemini with Model Fallback and Bounded Retry
+        # Prepare candidate models to handle transient 503 high demand or 404 deprecations
+        raw_candidates = [self.model_name, "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.8-flash"]
+        candidate_models = []
+        for m in raw_candidates:
+            if m and m not in candidate_models:
+                candidate_models.append(m)
+
         response = None
-        
-        while attempt < max_attempts:
-            attempt += 1
-            try:
-                response = self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=query,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=self.temperature,
-                        max_output_tokens=self.max_output_tokens
+        used_model = self.model_name
+        last_error = None
+
+        for model_to_try in candidate_models:
+            max_attempts = 2
+            attempt = 0
+            base_delay = 1.0
+            model_succeeded = False
+
+            while attempt < max_attempts:
+                attempt += 1
+                try:
+                    response = self.client.models.generate_content(
+                        model=model_to_try,
+                        contents=query,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            temperature=self.temperature,
+                            max_output_tokens=self.max_output_tokens
+                        )
                     )
-                )
-                break  # Success
-                
-            except APIError as e:
-                # Retry only on specific transient HTTP errors
-                # code is an integer (e.g., 429, 503)
-                code = getattr(e, "code", None)
-                if code in [429, 500, 502, 503, 504]:
-                    logger.warning(
-                        "Gemini API transient failure",
-                        extra={
-                            "provider": "gemini",
-                            "attempt": attempt,
-                            "max_attempts": max_attempts,
-                            "error_type": code,
-                            "reason": getattr(e, "message", "UNKNOWN")
-                        }
-                    )
-                    if attempt < max_attempts:
-                        time.sleep(base_delay * (2 ** (attempt - 1)))  # Exponential backoff
-                        continue
-                
-                # If not retriable or out of attempts
-                logger.error(
-                    "Gemini API Error",
-                    extra={
-                        "provider": "gemini",
-                        "attempt": attempt,
-                        "error_type": code,
-                        "reason": getattr(e, "message", "UNKNOWN")
-                    }
-                )
-                raise RuntimeError("Upstream provider error.") from None
-                
-            except Exception as e:
-                err_str = str(e).lower()
-                if "timed out" in err_str or "connection" in err_str or "ssl" in err_str:
-                    logger.warning(
-                        "Gemini API network transient failure",
-                        extra={
-                            "provider": "gemini",
-                            "attempt": attempt,
-                            "max_attempts": max_attempts,
-                            "error_type": "network_error",
-                            "reason": str(e)
-                        }
-                    )
-                    if attempt < max_attempts:
-                        time.sleep(base_delay * (2 ** (attempt - 1)))  # Exponential backoff
-                        continue
-                
-                logger.error(f"Unexpected error calling Gemini: {e}")
-                raise RuntimeError("Upstream provider error.") from None
-                
-        # 4. Extract and validate response
+                    used_model = model_to_try
+                    model_succeeded = True
+                    break  # Success
+                    
+                except APIError as e:
+                    code = getattr(e, "code", None)
+                    last_error = e
+                    # If model is unavailable (503) or discontinued (404), break immediately to next model
+                    if code in [404, 503]:
+                        logger.warning(
+                            f"Model {model_to_try} returned {code}. Attempting fallback model...",
+                            extra={"provider": "gemini", "model": model_to_try, "error_code": code}
+                        )
+                        break
+                    
+                    if code in [429, 500, 502, 504]:
+                        logger.warning(
+                            f"Gemini API transient failure on {model_to_try}: {code}",
+                            extra={"attempt": attempt, "error_type": code}
+                        )
+                        if attempt < max_attempts:
+                            time.sleep(base_delay * (2 ** (attempt - 1)))
+                            continue
+                    
+                    logger.error(f"Gemini API Error on {model_to_try}: {e}")
+                    break
+                    
+                except Exception as e:
+                    last_error = e
+                    err_str = str(e).lower()
+                    if "timed out" in err_str or "connection" in err_str or "ssl" in err_str:
+                        logger.warning(
+                            f"Gemini API network transient failure on {model_to_try}: {e}",
+                            extra={"attempt": attempt}
+                        )
+                        if attempt < max_attempts:
+                            time.sleep(base_delay)
+                            continue
+                    logger.error(f"Unexpected error calling Gemini on {model_to_try}: {e}")
+                    break
+
+            if model_succeeded and response and response.text:
+                break
+
+        # 4. Validate response
         if not response or not response.text:
-            raise RuntimeError("Upstream provider returned an empty response.")
+            err_msg = str(last_error) if last_error else "Provider returned an empty response."
+            raise RuntimeError(f"Gemini synthesis failed: {err_msg}")
             
         answer_text = response.text
         
@@ -139,7 +140,7 @@ class GeminiProvider(LLMProvider):
         return GenerationResult(
             answer=answer_text,
             citations=citations,
-            model=self.model_name,
+            model=used_model,
             finish_reason="stop",
             input_context_items=len(context.items),
             generation_latency_ms=latency_ms

@@ -27,10 +27,7 @@ class GeminiQueryRewriter(QueryUnderstandingProvider):
         self.enabled = getattr(settings, "QUERY_REWRITING_ENABLED", True)
         
         if self.api_key and self.api_key != "your_api_key_here":
-            self.client = genai.Client(
-                api_key=self.api_key,
-                http_options={"timeout": self.timeout}
-            )
+            self.client = genai.Client(api_key=self.api_key)
         else:
             self.client = None
             logger.error("GEMINI_API_KEY is not correctly set. Query rewriting disabled.")

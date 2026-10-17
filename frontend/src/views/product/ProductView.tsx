@@ -10,6 +10,7 @@ import {
   getStoredActiveChatId,
   saveStoredActiveChatId,
   deleteStoredChatMessages,
+  generateUniqueChatId,
 } from '../../lib/chatStorage';
 
 interface ProductViewProps {
@@ -25,11 +26,26 @@ export const ProductView: React.FC<ProductViewProps> = ({
 }) => {
   const userKey = getUserStorageKey(session?.email);
 
-  const [currentTab, setCurrentTab] = useState('chat-and-research');
+  // Synchronize initial tab and chat from URL query parameters if available
+  const [currentTab, setCurrentTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlTab = params.get('tab');
+      if (urlTab) return urlTab;
+    }
+    return 'chat-and-research';
+  });
+
   const [chatSessions, setChatSessions] = useState<ChatSessionItem[]>(() => {
     return getStoredChatSessions(userKey);
   });
+
   const [activeChatId, setActiveChatId] = useState<string | undefined>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlChat = params.get('chat');
+      if (urlChat) return urlChat;
+    }
     const stored = getStoredActiveChatId(userKey);
     const sessions = getStoredChatSessions(userKey);
     if (stored && sessions.some((s) => s.id === stored)) {
@@ -38,6 +54,27 @@ export const ProductView: React.FC<ProductViewProps> = ({
     return sessions[0]?.id || undefined;
   });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Synchronize browser URL query parameters with active chat and active tab
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'product');
+      if (currentTab === 'chat-and-research') {
+        url.searchParams.delete('tab');
+        if (activeChatId) {
+          url.searchParams.set('chat', activeChatId);
+        } else {
+          url.searchParams.delete('chat');
+        }
+      } else {
+        url.searchParams.delete('chat');
+        url.searchParams.set('tab', currentTab);
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch (_) {}
+  }, [currentTab, activeChatId]);
 
   // Sync state if userKey changes (e.g. login as different user)
   useEffect(() => {
@@ -51,6 +88,21 @@ export const ProductView: React.FC<ProductViewProps> = ({
     }
   }, [userKey]);
 
+  // Auto-initialize first chat if list is empty
+  useEffect(() => {
+    if (chatSessions.length === 0 && !activeChatId) {
+      const initialChat: ChatSessionItem = {
+        id: generateUniqueChatId(),
+        title: 'New chat',
+        timestamp: 'Just now',
+      };
+      setChatSessions([initialChat]);
+      setActiveChatId(initialChat.id);
+      saveStoredChatSessions(userKey, [initialChat]);
+      saveStoredActiveChatId(userKey, initialChat.id);
+    }
+  }, []);
+
   // Persist chat sessions whenever modified
   useEffect(() => {
     saveStoredChatSessions(userKey, chatSessions);
@@ -61,15 +113,15 @@ export const ProductView: React.FC<ProductViewProps> = ({
     saveStoredActiveChatId(userKey, activeChatId || null);
   }, [userKey, activeChatId]);
 
-  // Create a new dynamic chat session and persist it
+  // Create a new dynamic chat session and persist it with unique UUID
   const handleNewChat = () => {
     const newChat: ChatSessionItem = {
-      id: `chat-${Date.now()}`,
+      id: generateUniqueChatId(),
       title: 'New chat',
       timestamp: 'Just now',
     };
     setChatSessions((prev) => {
-      const updated = [newChat, ...prev];
+      const updated = [newChat, ...prev.filter((c) => c.id !== newChat.id)];
       saveStoredChatSessions(userKey, updated);
       return updated;
     });
@@ -164,7 +216,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
                 handleRenameChat(activeChatId, newTitle);
               } else {
                 // If chatting without an explicit session created yet, create one
-                const newId = `chat-${Date.now()}`;
+                const newId = generateUniqueChatId();
                 const newChat: ChatSessionItem = {
                   id: newId,
                   title: newTitle,

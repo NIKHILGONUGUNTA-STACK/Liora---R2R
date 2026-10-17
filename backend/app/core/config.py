@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # LLM & Embeddings
     GEMINI_API_KEY: str = Field(..., description="Gemini API Key")
-    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
     GEMINI_TEMPERATURE: float = 0.0
     GEMINI_MAX_OUTPUT_TOKENS: int = 2048
     GEMINI_TIMEOUT: float = 30.0
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     # Layer 13 Query Understanding Settings
     QUERY_REWRITING_ENABLED: bool = True
     QUERY_REWRITE_PROVIDER: str = "gemini"
-    QUERY_REWRITE_MODEL: str = "gemini-3.8-flash"
+    QUERY_REWRITE_MODEL: str = "gemini-3.5-flash"
     QUERY_REWRITE_TIMEOUT: float = 15.0
     QUERY_REWRITE_MAX_RETRIES: int = 1
 

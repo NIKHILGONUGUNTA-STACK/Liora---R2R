@@ -164,8 +164,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       onUpdateChatTitle(previewTitle);
     }
 
-    const userMessageId = `usr-${Date.now()}`;
-    const assistantMessageId = `ast-${Date.now() + 1}`;
+    const userMessageId = `usr-${typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).substring(2, 7)}`;
+    const assistantMessageId = `ast-${typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : (Date.now() + 1) + '-' + Math.random().toString(36).substring(2, 7)}`;
     const filesToUpload = [...attachedFiles];
 
     const newUserMessage: ChatMessage = {
