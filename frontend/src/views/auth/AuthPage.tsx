@@ -112,7 +112,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSignInEmail(email);
         setSignInSuccess(true);
         setMode('signin');
-        if (onSuccess) onSuccess(email);
+        setTimeout(() => {
+          if (onSuccess) onSuccess(email);
+        }, 1000);
 
         const url = new URL(window.location.href);
         url.searchParams.delete('token');
@@ -169,7 +171,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         });
         setSignInLoading(false);
         setSignInSuccess(true);
-        if (onSuccess) onSuccess(signInEmail);
+        setTimeout(() => {
+          if (onSuccess) onSuccess(signInEmail);
+        }, 1000);
         return;
       }
     } catch {
@@ -186,7 +190,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       });
       setSignInLoading(false);
       setSignInSuccess(true);
-      if (onSuccess) onSuccess(signInEmail);
+      setTimeout(() => {
+        if (onSuccess) onSuccess(signInEmail);
+      }, 1000);
     }, 450);
   };
 
@@ -307,7 +313,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         });
         setCreateLoading(false);
         setCreateStep('success');
-        if (onSuccess) onSuccess(createEmail);
+        setTimeout(() => {
+          if (onSuccess) onSuccess(createEmail);
+        }, 1000);
         return;
       } else {
         const errData = await resp.json().catch(() => null);
@@ -328,7 +336,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       });
       setCreateLoading(false);
       setCreateStep('success');
-      if (onSuccess) onSuccess(createEmail);
+      setTimeout(() => {
+        if (onSuccess) onSuccess(createEmail);
+      }, 1000);
     }, 450);
   };
 

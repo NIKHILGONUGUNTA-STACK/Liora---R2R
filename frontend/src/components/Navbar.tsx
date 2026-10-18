@@ -74,16 +74,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right CTA & Profile Zone */}
         <div className="flex items-center gap-3">
           <button
-            onClick={onOpenSignIn}
-            className="hidden sm:inline-flex text-[14px] text-[#434655] hover:text-[#0b1c30] transition-colors font-medium px-3 py-1.5 rounded-full hover:bg-slate-100"
-          >
-            Sign In
-          </button>
-          <button
             onClick={onLaunchConsole}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#2563eb] text-[#eeefff] hover:bg-[#1d4ed8] hover:text-white font-medium text-[14px] border border-white/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
-            <span>Launch Console</span>
+            <span>Try Liora</span>
             <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
           </button>
           <button

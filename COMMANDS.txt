@@ -1,0 +1,39 @@
+================================================================================
+LIORA R2R - LOCAL RUN COMMANDS
+================================================================================
+
+Open separate terminal tabs/windows for each service:
+
+--------------------------------------------------------------------------------
+1. DATABASE (PostgreSQL with pgvector)
+--------------------------------------------------------------------------------
+Run from project root:
+
+docker compose up -d db
+
+(Check status if needed: docker ps)
+
+
+--------------------------------------------------------------------------------
+2. BACKEND (FastAPI - Port 8000)
+--------------------------------------------------------------------------------
+Run in Terminal 1:
+
+cd c:\Users\nikhi\Liora_R2R\backend
+..\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+API Health / Swagger Docs:
+http://localhost:8000/docs
+
+
+--------------------------------------------------------------------------------
+3. FRONTEND (Vite / React - Port 3000)
+--------------------------------------------------------------------------------
+Run in Terminal 2:
+
+cd c:\Users\nikhi\Liora_R2R\frontend
+npm run dev
+
+Web App URL:
+http://localhost:3000
+================================================================================

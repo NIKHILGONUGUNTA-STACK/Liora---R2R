@@ -263,21 +263,6 @@ export default function App() {
               </a>
             </nav>
             <div className="flex items-center gap-space-md">
-              {/* Separate dedicated Sign In button */}
-              <button
-                type="button"
-                onClick={() => {
-                  navigateTo('/login');
-                }}
-                className={`px-4 py-2 rounded-full font-label-lg text-label-lg font-medium transition-colors duration-700 ease-in-out cursor-pointer ${
-                  isPastGradient
-                    ? 'text-white/90 hover:text-white hover:bg-white/10'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                Sign In
-              </button>
-
               <button
                 type="button"
                 onClick={() => {
@@ -292,35 +277,29 @@ export default function App() {
                     ? 'bg-white text-[#1B4EF5] hover:bg-blue-50 border-white/40 font-semibold'
                     : 'bg-primary-container text-on-primary-container hover:bg-secondary hover:text-on-secondary border-transparent'
                 }`}
-                data-path="launch-console"
+                data-path="try-liora"
               >
-                <span>Launch Console</span>
+                <span>Try Liora</span>
                 <ArrowRight className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
               </button>
-              <button 
-                onClick={() => {
-                  if (session) {
-                    navigateTo('/chat');
-                  } else {
-                    navigateTo('/login');
-                  }
-                }}
-                className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-700 ease-in-out cursor-pointer ${
-                  isPastGradient
-                    ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
-                    : 'bg-surface-container border-outline-variant/30 text-on-surface hover:bg-surface-container-high'
-                }`}
-                aria-label="User account"
-                title={session ? `Signed in as (${session.email})` : 'Sign In'}
-              >
-                {session ? (
+
+              {session && (
+                <button 
+                  type="button"
+                  onClick={() => navigateTo('/chat')}
+                  className={`w-8 h-8 rounded-full border flex items-center justify-center shrink-0 transition-colors duration-700 ease-in-out cursor-pointer ${
+                    isPastGradient
+                      ? 'bg-white/20 text-white border-white/30 hover:bg-white/30'
+                      : 'bg-surface-container border-outline-variant/30 text-on-surface hover:bg-surface-container-high'
+                  }`}
+                  aria-label="User account"
+                  title={`Signed in as (${session.email})`}
+                >
                   <span className={`font-bold text-xs ${isPastGradient ? 'text-white' : 'text-[#1B4EF5]'}`}>
                     {session.firstName ? session.firstName.charAt(0) : session.email.charAt(0).toUpperCase()}
                   </span>
-                ) : (
-                  <User className={`w-4.5 h-4.5 transition-colors duration-700 ease-in-out ${isPastGradient ? 'text-white' : 'text-slate-700'}`} />
-                )}
-              </button>
+                </button>
+              )}
             </div>
           </div>
         </header>
