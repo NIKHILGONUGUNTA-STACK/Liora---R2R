@@ -185,7 +185,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
   const currentChatTitle = activeChat ? activeChat.title : 'New chat';
 
   return (
-    <div className="min-h-screen bg-[#212121] text-neutral-100 flex font-['Plus_Jakarta_Sans',sans-serif] antialiased overflow-hidden select-none">
+    <div className="h-screen bg-[#212121] text-neutral-100 flex font-['Plus_Jakarta_Sans',sans-serif] antialiased overflow-hidden select-none">
       {/* ChatGPT-style Dark Sidebar */}
       <Sidebar
         currentTab={currentTab}
@@ -224,7 +224,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
 
       {/* Main product area */}
       <main
-        className={`flex-1 min-h-screen bg-[#212121] flex flex-col transition-all duration-200 ${
+        className={`flex-1 h-screen bg-[#212121] flex flex-col transition-all duration-200 overflow-hidden relative ${
           isSidebarCollapsed ? 'ml-14' : 'ml-72'
         }`}
       >
