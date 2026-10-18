@@ -12,12 +12,7 @@ import {
   Check,
   Loader2,
   File,
-  ShieldCheck,
-  Search,
-  ExternalLink,
   AlertCircle,
-  Database,
-  Zap,
 } from 'lucide-react';
 import { LioraLogo } from '../../components/LioraLogo';
 import { getStoredMessages, saveStoredMessages } from '../../lib/chatStorage';
@@ -50,70 +45,7 @@ interface ChatInterfaceProps {
   onUpdateChatTitle?: (newTitle: string) => void;
 }
 
-// Custom Dark SVG Illustration for Chat Empty State (Harmonized with EmptyPageView)
-const ChatEmptyIllustration = () => (
-  <div className="relative w-48 h-48 sm:w-56 sm:h-56 mb-4 flex items-center justify-center select-none">
-    {/* Ambient radial glow */}
-    <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-    <svg
-      className="w-full h-full"
-      viewBox="0 0 280 280"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Outer telemetry ring */}
-      <circle cx="140" cy="140" r="115" stroke="#2b2b2b" strokeWidth="1.5" strokeDasharray="4 6" />
-      {/* Mid ring */}
-      <circle cx="140" cy="140" r="82" stroke="#333333" strokeWidth="1.5" />
-      {/* Inner ring */}
-      <circle cx="140" cy="140" r="52" stroke="#3a3a3a" strokeWidth="1.5" strokeDasharray="2 4" />
 
-      {/* Axis crosshairs */}
-      <line x1="140" y1="20" x2="140" y2="58" stroke="#404040" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="140" y1="222" x2="140" y2="260" stroke="#404040" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="20" y1="140" x2="58" y2="140" stroke="#404040" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="222" y1="140" x2="260" y2="140" stroke="#404040" strokeWidth="1.5" strokeLinecap="round" />
-
-      {/* Diagonal dotted rays */}
-      <path d="M85 85 L108 108 M172 172 L195 195 M195 85 L172 108 M108 172 L85 195" stroke="#2e2e2e" strokeWidth="1.5" strokeDasharray="3 3" />
-
-      {/* Satellite Node 1: pgvector HNSW (Top) */}
-      <circle cx="140" cy="50" r="14" fill="#1b1b1b" stroke="#3b82f6" strokeWidth="1.5" />
-      <circle cx="140" cy="50" r="4" fill="#3b82f6" />
-      {/* Satellite Node 2: Gemini LLM (Right) */}
-      <circle cx="230" cy="140" r="14" fill="#1b1b1b" stroke="#8b5cf6" strokeWidth="1.5" />
-      <circle cx="230" cy="140" r="4" fill="#8b5cf6" />
-      {/* Satellite Node 3: Document Vault (Bottom) */}
-      <circle cx="140" cy="230" r="14" fill="#1b1b1b" stroke="#10b981" strokeWidth="1.5" />
-      <circle cx="140" cy="230" r="4" fill="#10b981" />
-      {/* Satellite Node 4: Citation Proofs (Left) */}
-      <circle cx="50" cy="140" r="14" fill="#1b1b1b" stroke="#f59e0b" strokeWidth="1.5" />
-      <circle cx="50" cy="140" r="4" fill="#f59e0b" />
-
-      {/* Floating mini document card accent */}
-      <rect x="180" y="60" width="34" height="42" rx="6" fill="#191919" stroke="#3a3a3a" strokeWidth="1.2" transform="rotate(12 197 81)" />
-      <rect x="186" y="68" width="16" height="3" rx="1.5" fill="#3b82f6" transform="rotate(12 186 68)" />
-      <rect x="186" y="75" width="22" height="2.5" rx="1.2" fill="#4a4a4a" transform="rotate(12 186 75)" />
-
-      {/* Floating mini search card accent */}
-      <rect x="66" y="180" width="34" height="42" rx="6" fill="#191919" stroke="#3a3a3a" strokeWidth="1.2" transform="rotate(-10 83 201)" />
-      <rect x="73" y="188" width="16" height="3" rx="1.5" fill="#10b981" transform="rotate(-10 73 188)" />
-      <rect x="73" y="195" width="22" height="2.5" rx="1.2" fill="#4a4a4a" transform="rotate(-10 73 195)" />
-
-      {/* Central Nucleus Node */}
-      <circle cx="140" cy="140" r="28" fill="#141414" stroke="#484848" strokeWidth="2" />
-      <circle cx="140" cy="140" r="22" fill="#1f1f1f" />
-      {/* Center Liora Emblem Mark */}
-      <path
-        d="M133 133 L140 126 L147 133 M140 126 L140 152 M131 154 L149 154"
-        stroke="#ffffff"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  </div>
-);
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   chatId,
@@ -380,45 +312,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  const starterPrompts = [
-    {
-      title: 'Deterministic Retrieval Architecture',
-      desc: 'Ask about PostgreSQL pgvector and HNSW hybrid indexing.',
-      icon: Database,
-      color: 'text-blue-400',
-      action: () => {
-        setQuery('Explain how Liora uses PostgreSQL pgvector and HNSW hybrid search for deterministic proof.');
-        textareaRef.current?.focus();
-      },
-    },
-    {
-      title: 'Summarize Document Findings',
-      desc: 'Synthesize core points with verbatim citation anchors.',
-      icon: FileText,
-      color: 'text-emerald-400',
-      action: () => {
-        setQuery('Summarize the key deterministic retrieval criteria and confidence scoring thresholds.');
-        textareaRef.current?.focus();
-      },
-    },
-    {
-      title: 'Check Ingested Knowledge',
-      desc: 'Query verified knowledge chunks indexed in your database.',
-      icon: Search,
-      color: 'text-amber-400',
-      action: () => {
-        setQuery('What documents or topics are currently indexed in my knowledge engine?');
-        textareaRef.current?.focus();
-      },
-    },
-    {
-      title: 'Attach & Analyze Research',
-      desc: 'Upload a PDF, TXT or DOCX to extract verified conclusions.',
-      icon: Plus,
-      color: 'text-purple-400',
-      action: () => handleOpenDocPicker(),
-    },
-  ];
+
 
   // Reusable prompt input box (middle for empty chat, fixed bottom for active conversation)
   const renderInputBox = () => (
@@ -624,54 +518,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       </div>
 
-      {/* CASE 1: EMPTY / NEW CHAT (Middle Placement like ChatGPT with Illustrations around it) */}
+      {/* CASE 1: EMPTY / NEW CHAT (Clean, Minimal ChatGPT-style Center Placement) */}
       {messages.length === 0 ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
           <div className="w-full max-w-3xl flex flex-col items-center my-auto">
-            {/* Custom SVG Illustration */}
-            <ChatEmptyIllustration />
-
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#262626] border border-[#383838] text-xs text-neutral-300 font-medium mb-3 shadow-sm select-none">
-              <Zap className="w-3.5 h-3.5 text-blue-400" />
-              <span>Deterministic Knowledge Engine Ready</span>
+            {/* Clean Center Brand & Heading */}
+            <div className="flex flex-col items-center mb-7 select-none text-center">
+              <div className="w-10 h-10 rounded-2xl bg-[#262626] border border-[#383838] flex items-center justify-center mb-4 shadow-sm">
+                <LioraLogo size={24} />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-neutral-100 tracking-tight">
+                Where knowledge meets deterministic proof.
+              </h1>
             </div>
-
-            {/* Heading & Subtitle */}
-            <h1 className="text-2xl sm:text-3xl font-bold text-neutral-100 tracking-tight mb-2 text-center">
-              Where knowledge meets deterministic proof.
-            </h1>
-            <p className="text-sm text-neutral-400 text-center max-w-lg mb-7 leading-relaxed">
-              Ask anything across your verified pgvector knowledge base or attach research documents (.pdf, .txt, .docx, .ppt).
-            </p>
 
             {/* Centered Input Box (ChatGPT-style middle placement) */}
-            <div className="w-full mb-6">
+            <div className="w-full">
               {renderInputBox()}
-            </div>
-
-            {/* Starter Prompt Cards around the Input Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
-              {starterPrompts.map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={item.action}
-                  className="p-3.5 rounded-2xl bg-[#1b1b1b] hover:bg-[#262626] border border-[#2e2e2e] hover:border-[#3d3d3d] transition-all text-left flex items-start gap-3 group cursor-pointer"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-[#242424] border border-[#333333] flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-[#2a2a2a] transition-colors">
-                    <item.icon className={`w-4 h-4 ${item.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-neutral-200 group-hover:text-white block mb-0.5 truncate">
-                      {item.title}
-                    </span>
-                    <span className="text-[11px] text-neutral-400 leading-normal block line-clamp-2">
-                      {item.desc}
-                    </span>
-                  </div>
-                </button>
-              ))}
             </div>
           </div>
         </div>
