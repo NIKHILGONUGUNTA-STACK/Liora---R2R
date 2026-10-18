@@ -60,14 +60,31 @@ def validate_password_complexity(password: str) -> None:
 OTP_STORE: dict[str, dict] = {}
 
 @router.post("/send-otp", response_model=OTPResponse)
-def send_otp(req: SendOTPRequest):
+def send_otp(req: SendOTPRequest, db: Session = Depends(get_db)):
+    email = req.email.lower().strip()
+
+    # Pre-verification: Prevent sending OTP if email already has an active account
+    if req.purpose == "create":
+        try:
+            existing_user = db.query(User).filter(User.email == email).first()
+            if existing_user:
+                AuditLogger.log("OTP_BLOCKED_EXISTING_USER", details={"email": email})
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="An account with this email already exists. Please sign in."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            AuditLogger.log("DB_CHECK_FAILED_SEND_OTP", details={"email": email, "error": str(e)})
+
     code = f"{random.randint(100000, 999999)}"
-    OTP_STORE[req.email.lower()] = {
+    OTP_STORE[email] = {
         "code": code,
         "expires_at": time.time() + 600, # 10 minutes
     }
-    AuditLogger.log("OTP_SENT", details={"email": req.email, "purpose": req.purpose})
-    EmailService.send_otp_email(req.email.lower(), code, purpose=req.purpose or "create")
+    AuditLogger.log("OTP_SENT", details={"email": email, "purpose": req.purpose})
+    EmailService.send_otp_email(email, code, purpose=req.purpose or "create")
     return OTPResponse(
         message="Verification code sent to your email.",
         resend_cooldown_seconds=120,

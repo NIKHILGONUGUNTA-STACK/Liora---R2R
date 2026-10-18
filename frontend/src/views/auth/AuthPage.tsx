@@ -220,6 +220,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       if (!resp.ok) {
         const data = await resp.json().catch(() => null);
         setCreateLoading(false);
+
+        // Pre-verification: existing account detected before sending OTP
+        if (resp.status === 409 || data?.detail?.toLowerCase().includes('already exists')) {
+          const emailToTransfer = createEmail.trim();
+          setSignInEmail(emailToTransfer);
+          showNotification('Account already exists! Taking you to Sign In...');
+          setCreateError('An account with this email already exists. Redirecting to Sign In...');
+          setTimeout(() => {
+            setMode('signin');
+            setCreateError(null);
+            setSignInError('An account with this email already exists. Please enter your password to sign in.');
+          }, 1200);
+          return;
+        }
+
         setCreateError(data?.detail || 'Failed to dispatch verification code. Please check that backend is running.');
         return;
       }
@@ -320,6 +335,16 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       } else {
         const errData = await resp.json().catch(() => null);
         setCreateLoading(false);
+        if (resp.status === 409 || errData?.detail?.toLowerCase().includes('already exists')) {
+          setSignInEmail(createEmail.trim());
+          showNotification('Account already exists! Taking you to Sign In...');
+          setTimeout(() => {
+            setMode('signin');
+            setCreateError(null);
+            setSignInError('An account with this email already exists. Please enter your password to sign in.');
+          }, 1200);
+          return;
+        }
         setCreateError(errData?.detail || 'Failed to complete account registration.');
         return;
       }
