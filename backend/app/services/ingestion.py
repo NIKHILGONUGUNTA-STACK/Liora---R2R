@@ -31,7 +31,18 @@ class DocumentIngestionService:
         ext = os.path.splitext(filename)[1]
         content_type = (file.content_type or "").lower()
 
-        # 1. Disallow raw images
+        # 1. Reject Binary executables (.exe, .bin)
+        EXECUTABLE_EXTENSIONS = {
+            '.exe', '.bin', '.dll', '.so', '.dylib', '.dmg',
+            '.iso', '.msi', '.bat', '.cmd', '.sh', '.apk', '.sys', '.com'
+        }
+        if ext in EXECUTABLE_EXTENSIONS or content_type in ('application/x-msdownload', 'application/x-executable'):
+            raise HTTPException(
+                status_code=400,
+                detail="Binary executables (.exe, .bin) are not supported. They do not contain semantic text for retrieval."
+            )
+
+        # 2. Reject Images without text (OCR in future)
         IMAGE_EXTENSIONS = {
             '.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp',
             '.svg', '.tiff', '.tif', '.ico', '.heic', '.raw'
@@ -39,42 +50,68 @@ class DocumentIngestionService:
         if ext in IMAGE_EXTENSIONS or content_type.startswith("image/"):
             raise HTTPException(
                 status_code=400,
-                detail="Image files are not supported. Only documents with extractable text (.pdf, .docx, .ppt, .txt, .md, .csv) are supported."
+                detail="Images without text are not supported (unless paired with OCR, which will be implemented in the future, they do not add searchable context). Please upload extractable text documents."
             )
 
-        # 2. Allowed extractable document formats
+        # 3. Reject Encrypted/proprietary archives
+        ARCHIVE_EXTENSIONS = {
+            '.zip', '.rar', '.7z', '.tar', '.gz', '.pkg', '.deb', '.rpm'
+        }
+        if ext in ARCHIVE_EXTENSIONS:
+            raise HTTPException(
+                status_code=400,
+                detail="Encrypted or proprietary archives (.zip, .rar) are not supported. Please upload extracted documents or spreadsheets directly."
+            )
+
+        # 4. Allowed formats:
+        # - Plain text: .txt, .md
+        # - Documents: .pdf, .docx, .doc, .pptx, .ppt
+        # - Spreadsheets: .csv, .xlsx, .tsv
+        # - Web content: .html, .xml
+        # - Knowledge exports: .json, .yaml, .yml
         ALLOWED_EXTENSIONS = {
-            '.pdf',
-            '.docx', '.doc',
-            '.pptx', '.ppt',
             '.txt', '.md', '.markdown',
-            '.csv', '.tsv',
-            '.json', '.rtf', '.log',
-            '.html', '.htm'
+            '.pdf', '.docx', '.doc', '.pptx', '.ppt',
+            '.csv', '.xlsx', '.xls', '.tsv',
+            '.html', '.htm', '.xml',
+            '.json', '.yaml', '.yml',
+            '.rtf', '.log'
         }
         if ext not in ALLOWED_EXTENSIONS:
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file format '{ext}'. Allowed formats: PDF (.pdf), Word (.docx), PowerPoint (.pptx), Text (.txt, .md, .csv)."
+                detail=(
+                    f"Unsupported file format '{ext}'. Allowed formats:\n"
+                    "• Plain text: .txt, .md\n"
+                    "• Documents: .pdf, .docx\n"
+                    "• Spreadsheets: .csv, .xlsx\n"
+                    "• Web content: .html, .xml\n"
+                    "• Knowledge exports: .json, .yaml"
+                )
             )
 
-        # 3. Map MIME type
+        # 5. Map MIME type
         MIME_MAP = {
+            '.txt': 'text/plain',
+            '.md': 'text/markdown',
+            '.markdown': 'text/markdown',
             '.pdf': 'application/pdf',
             '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             '.doc': 'application/msword',
             '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             '.ppt': 'application/vnd.ms-powerpoint',
-            '.txt': 'text/plain',
-            '.md': 'text/markdown',
-            '.markdown': 'text/markdown',
             '.csv': 'text/csv',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            '.xls': 'application/vnd.ms-excel',
             '.tsv': 'text/tab-separated-values',
-            '.json': 'application/json',
-            '.rtf': 'application/rtf',
-            '.log': 'text/plain',
             '.html': 'text/html',
             '.htm': 'text/html',
+            '.xml': 'application/xml',
+            '.json': 'application/json',
+            '.yaml': 'application/x-yaml',
+            '.yml': 'application/x-yaml',
+            '.rtf': 'application/rtf',
+            '.log': 'text/plain',
         }
         mime_type = file.content_type if file.content_type and file.content_type != 'application/octet-stream' else MIME_MAP.get(ext, 'application/octet-stream')
 

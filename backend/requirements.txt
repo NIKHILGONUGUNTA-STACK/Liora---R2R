@@ -14,3 +14,5 @@ python-multipart
 pypdf
 python-docx
 python-pptx
+openpyxl
+pyyaml

@@ -122,25 +122,50 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Handle file selection from disk (.pdf, .docx, .ppt, .txt, .md, .csv)
+  // Handle file selection from disk with strict format classification
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selected = Array.from(e.target.files);
       const validFiles: File[] = [];
+      const rejectedExecutables: string[] = [];
       const rejectedImages: string[] = [];
+      const rejectedArchives: string[] = [];
+      const rejectedOther: string[] = [];
 
       selected.forEach((file) => {
         const name = file.name.toLowerCase();
-        const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|ico|heic|raw)$/i.test(name);
-        if (isImage) {
+
+        // 1. Binary executables
+        if (/\.(exe|bin|dll|so|dylib|dmg|iso|msi|bat|cmd|sh|apk|sys|com)$/i.test(name)) {
+          rejectedExecutables.push(file.name);
+        }
+        // 2. Images without text
+        else if (file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|ico|heic|raw)$/i.test(name)) {
           rejectedImages.push(file.name);
-        } else {
+        }
+        // 3. Encrypted/proprietary archives
+        else if (/\.(zip|rar|7z|tar|gz|pkg|deb|rpm)$/i.test(name)) {
+          rejectedArchives.push(file.name);
+        }
+        // 4. Allowed formats: Plain text (.txt, .md), Documents (.pdf, .docx), Spreadsheets (.csv, .xlsx), Web (.html, .xml), Exports (.json, .yaml)
+        else if (/\.(txt|md|markdown|pdf|docx|doc|csv|xlsx|xls|tsv|html|htm|xml|json|yaml|yml|pptx|ppt|rtf|log)$/i.test(name)) {
           validFiles.push(file);
+        } else {
+          rejectedOther.push(file.name);
         }
       });
 
+      if (rejectedExecutables.length > 0) {
+        alert(`Binary executables (${rejectedExecutables.join(', ')}) are not supported.\nThey do not contain semantic text for retrieval.`);
+      }
       if (rejectedImages.length > 0) {
-        alert(`Image files are not supported (${rejectedImages.join(', ')}).\nPlease upload documents with extractable text (.pdf, .docx, .ppt, .txt, .md, .csv).`);
+        alert(`Images without text (${rejectedImages.join(', ')}) are not supported.\nUnless paired with OCR (planned for future update), they don't add searchable context.`);
+      }
+      if (rejectedArchives.length > 0) {
+        alert(`Encrypted or archive files (${rejectedArchives.join(', ')}) are not supported.\nPlease extract and upload documents or spreadsheets directly.`);
+      }
+      if (rejectedOther.length > 0) {
+        alert(`Unsupported file format (${rejectedOther.join(', ')}).\nAllowed formats:\n• Plain text: .txt, .md\n• Documents: .pdf, .docx\n• Spreadsheets: .csv, .xlsx\n• Web content: .html, .xml\n• Knowledge exports: .json, .yaml`);
       }
 
       if (validFiles.length > 0) {
@@ -356,7 +381,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 Files and documents
               </div>
               <div className="text-[11px] text-neutral-400 leading-tight mt-0.5">
-                Upload from device (.pdf, .docx, .ppt, .txt, .md, .csv)
+                .txt, .md, .pdf, .docx, .csv, .xlsx, .html, .xml, .json, .yaml
               </div>
             </div>
           </button>
@@ -425,7 +450,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
           {/* Subtitle / Footer Notice */}
           <div className="mt-1 pt-2 border-t border-[#2a2a2a] px-2 pb-1 text-[10px] text-neutral-400 leading-tight text-center">
-            Supported: .pdf, .docx, .ppt, .txt, .md, .csv • Scanned & images not supported
+            Allowed: .txt, .md • .pdf, .docx • .csv, .xlsx • .html, .xml • .json, .yaml
           </div>
         </div>
       )}
@@ -514,13 +539,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#212121] text-neutral-100 relative overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Hidden native file input accepting .pdf, .docx, .pptx, .ppt, .txt, .md, .csv */}
+      {/* Hidden native file input accepting allowed document formats */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         multiple
-        accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.markdown,.csv,.tsv,.json,.rtf,.log,.html"
+        accept=".txt,.md,.pdf,.docx,.doc,.csv,.xlsx,.xls,.tsv,.html,.htm,.xml,.json,.yaml,.yml,.pptx,.ppt"
         className="hidden"
       />
 
