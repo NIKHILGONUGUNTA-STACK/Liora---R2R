@@ -295,7 +295,7 @@ async def google_callback(code: str, request: Request, db: Session = Depends(get
     jwt_token = create_access_token(data={"sub": user_id})
     AuditLogger.log("LOGIN_SUCCESS_VIA_GOOGLE_OAUTH", user_id=user_id)
 
-    frontend_redirect = f"{settings.FRONTEND_URL}/?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=google"
+    frontend_redirect = f"{settings.FRONTEND_URL}/signin?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=google"
     return RedirectResponse(url=frontend_redirect)
 
 # ==========================================
@@ -393,5 +393,5 @@ async def github_callback(code: str, request: Request, db: Session = Depends(get
     jwt_token = create_access_token(data={"sub": user_id})
     AuditLogger.log("LOGIN_SUCCESS_VIA_GITHUB_OAUTH", user_id=user_id)
 
-    frontend_redirect = f"{settings.FRONTEND_URL}/?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=github"
+    frontend_redirect = f"{settings.FRONTEND_URL}/signin?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=github"
     return RedirectResponse(url=frontend_redirect)

@@ -22,6 +22,12 @@ export function parseCurrentRoute(): ParsedRoute {
   const legacyView = searchParams.get('view');
   const legacyChat = searchParams.get('chat');
   const legacyTab = searchParams.get('tab');
+  const token = searchParams.get('token');
+
+  // OAuth redirect callback detection: if token is present, stay in signin page
+  if (token) {
+    return { view: 'auth', authMode: 'signin' };
+  }
 
   // 1. Auth routes
   if (pathname === '/auth' || pathname === '/login' || pathname === '/signin' || legacyView === 'auth') {

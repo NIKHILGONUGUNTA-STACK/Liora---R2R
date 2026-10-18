@@ -28,14 +28,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   onOpenProduct,
   onSuccess,
 }) => {
-  const [mode, setMode] = useState<AuthMode>(initialMode);
+  // Check if initial load is an OAuth callback
+  const initialOAuthParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const initialOAuthToken = initialOAuthParams?.get('token');
+  const initialOAuthEmail = initialOAuthParams?.get('email');
+  const isOAuthSuccess = Boolean(initialOAuthToken && initialOAuthEmail);
+
+  const [mode, setMode] = useState<AuthMode>(isOAuthSuccess ? 'signin' : initialMode);
 
   // Sign In states
-  const [signInEmail, setSignInEmail] = useState('');
+  const [signInEmail, setSignInEmail] = useState(initialOAuthEmail || '');
   const [signInPassword, setSignInPassword] = useState('');
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [signInLoading, setSignInLoading] = useState(false);
-  const [signInSuccess, setSignInSuccess] = useState(false);
+  const [signInSuccess, setSignInSuccess] = useState(isOAuthSuccess);
   const [signInError, setSignInError] = useState<string | null>(null);
 
   // Create Account states
@@ -116,12 +122,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           if (onSuccess) onSuccess(email);
         }, 1000);
 
-        const url = new URL(window.location.href);
-        url.searchParams.delete('token');
-        url.searchParams.delete('email');
-        url.searchParams.delete('name');
-        url.searchParams.delete('provider');
-        window.history.replaceState({}, '', url.toString());
+        // Clean query params and keep clean /signin URL in address bar
+        window.history.replaceState({}, '', '/signin');
       }
     }
   }, []);
@@ -654,7 +656,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                   <div className="space-y-6">
                     <SuccessCheckmark
                       label="Signed in successfully"
-                      subtext={`Authenticated as ${signInEmail}. Your session is active and verified.`}
+                      subtext={`Authenticated as ${signInEmail || initialOAuthEmail || 'your account'}. Your session is active and verified.`}
                     />
                     <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       {onOpenProduct && (
