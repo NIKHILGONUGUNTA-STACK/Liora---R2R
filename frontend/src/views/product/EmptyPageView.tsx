@@ -236,6 +236,7 @@ export const EmptyPageView: React.FC<EmptyPageViewProps> = ({
       );
 
     case 'models':
+    case 'models-and-providers':
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
           {/* Custom Dark SVG Illustration for AI Models */}
@@ -333,6 +334,8 @@ export const EmptyPageView: React.FC<EmptyPageViewProps> = ({
       );
 
     case 'analytics':
+    case 'analytics-and-audit':
+    case 'analytics&audit':
       return (
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
           {/* Custom Dark SVG Illustration for Analytics & Audit */}

@@ -149,7 +149,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <nav className="flex flex-col gap-1 w-full mt-1">
             {mainNavItems.map((item) => {
               const IconComp = item.icon;
-              const isActive = currentTab === item.id;
+              const isActive =
+                currentTab === item.id ||
+                (item.id === 'models' && currentTab === 'models-and-providers') ||
+                (item.id === 'analytics' && (currentTab === 'analytics-and-audit' || currentTab === 'analytics&audit'));
               return (
                 <button
                   key={item.id}
@@ -308,7 +311,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={() => onTabChange('models')}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-[13.5px] font-medium text-left cursor-pointer ${
-              currentTab === 'models'
+              currentTab === 'models' || currentTab === 'models-and-providers'
                 ? 'bg-[#212121] text-white border border-[#333333]'
                 : 'text-neutral-400 hover:text-white hover:bg-[#212121]'
             }`}
@@ -322,7 +325,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={() => onTabChange('analytics')}
             className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-[13.5px] font-medium text-left cursor-pointer ${
-              currentTab === 'analytics'
+              currentTab === 'analytics' || currentTab === 'analytics-and-audit' || currentTab === 'analytics&audit'
                 ? 'bg-[#212121] text-white border border-[#333333]'
                 : 'text-neutral-400 hover:text-white hover:bg-[#212121]'
             }`}

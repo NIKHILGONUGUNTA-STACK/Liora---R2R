@@ -611,23 +611,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         className="hidden"
       />
 
-      {/* Top Header bar with active chat title */}
-      <header className="h-14 border-b border-[#2b2b2b] bg-[#212121]/80 backdrop-blur-md px-6 flex items-center justify-between z-10 shrink-0 select-none">
-        <div className="flex items-center gap-2.5">
-          <span className="text-sm font-medium text-neutral-200 truncate max-w-md">
-            {chatTitle}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-[#2a2a2a] text-[10px] font-medium text-neutral-400 border border-[#353535]">
-            Gemini 3.8 Flash
-          </span>
+      {/* Floating Top-Left Chat Title Overlay (Header bar removed for maximum view) */}
+      <div className="absolute top-3.5 left-5 z-30 pointer-events-auto flex items-center gap-2.5 select-none">
+        <span className="text-sm font-medium text-neutral-200 truncate max-w-[200px] sm:max-w-xs md:max-w-md drop-shadow-sm">
+          {chatTitle}
+        </span>
+        <span className="px-2 py-0.5 rounded-full bg-[#2a2a2a]/80 backdrop-blur-md text-[10px] font-medium text-neutral-400 border border-[#383838]/80 shadow-sm">
+          Gemini 3.8 Flash
+        </span>
+        <div className="hidden sm:flex items-center gap-1 text-[11px] text-neutral-400 ml-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Deterministic RAG Active" />
         </div>
-        <div className="flex items-center gap-3 text-xs text-neutral-400">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Deterministic RAG</span>
-          </div>
-        </div>
-      </header>
+      </div>
 
       {/* CASE 1: EMPTY / NEW CHAT (Middle Placement like ChatGPT with Illustrations around it) */}
       {messages.length === 0 ? (
@@ -684,7 +679,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         /* CASE 2: ACTIVE CONVERSATION (Scrollable Messages with Fixed Bottom Input Bar) */
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
           {/* Scrollable Message Thread */}
-          <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
+          <div className="flex-1 overflow-y-auto px-4 pt-14 pb-6 scroll-smooth">
             <div className="max-w-3xl mx-auto flex flex-col gap-6 pb-6">
               {messages.map((msg) => (
                 <div key={msg.id} className="flex flex-col gap-3 animate-fade-in">

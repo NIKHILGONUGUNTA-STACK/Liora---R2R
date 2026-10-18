@@ -64,10 +64,10 @@ export function parseCurrentRoute(): ParsedRoute {
     return { view: 'product', tab: 'documents' };
   }
   if (pathname === '/models' || pathname === '/models-and-providers') {
-    return { view: 'product', tab: 'models-and-providers' };
+    return { view: 'product', tab: 'models' };
   }
   if (pathname === '/analytics' || pathname === '/analytics-and-audit') {
-    return { view: 'product', tab: 'analytics-and-audit' };
+    return { view: 'product', tab: 'analytics' };
   }
   if (pathname === '/settings') {
     return { view: 'product', tab: 'settings' };
@@ -116,8 +116,8 @@ export function getPathForTab(tab: string, chatId?: string): string {
   }
   if (tab === 'overview') return '/overview';
   if (tab === 'documents') return '/documents';
-  if (tab === 'models-and-providers') return '/models';
-  if (tab === 'analytics-and-audit') return '/analytics';
+  if (tab === 'models' || tab === 'models-and-providers') return '/models';
+  if (tab === 'analytics' || tab === 'analytics-and-audit' || tab === 'analytics&audit') return '/analytics';
   if (tab === 'settings') return '/settings';
   return '/chat';
 }
