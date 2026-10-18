@@ -63,8 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onArchiveChat,
   onShareChat,
   onMoveToProject,
-  userEmail = 'operator@liora.io',
-  userName = 'Operator',
+  userEmail = '',
+  userName = '',
   onGoToLanding,
   onLogout,
   isCollapsed: controlledIsCollapsed,
@@ -207,7 +207,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className="w-9 h-9 rounded-full bg-[#262626] border border-[#383838] flex items-center justify-center text-white relative hover:ring-2 hover:ring-blue-500/50 transition-all cursor-pointer"
             title={userName}
           >
-            <span className="text-xs font-bold uppercase">{userName.charAt(0) || 'O'}</span>
+            <span className="text-xs font-bold uppercase">
+              {(userName || userEmail || 'U').charAt(0)}
+            </span>
             <span className="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-[#171717]" />
           </button>
         </div>
@@ -642,14 +644,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="w-7 h-7 rounded-full bg-[#2a2a2a] border border-[#383838] flex items-center justify-center shrink-0 text-white font-bold text-xs">
-              {userName.charAt(0).toUpperCase() || 'O'}
+              {(userName || userEmail || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-[13px] font-semibold text-neutral-200 truncate group-hover:text-white transition-colors">
-                {userName}
+                {userName || (userEmail ? userEmail.split('@')[0] : 'Account')}
               </p>
               <p className="text-[11px] text-neutral-400 truncate">
-                {userEmail || 'operator@liora.io'}
+                {userEmail || 'Active Session'}
               </p>
             </div>
           </div>
@@ -660,8 +662,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {isProfileMenuOpen && (
           <div className="absolute left-3 right-3 bottom-16 bg-[#212121] border border-[#333333] rounded-xl shadow-2xl z-50 p-1.5 text-xs space-y-1">
             <div className="px-2 py-1.5 border-b border-[#2e2e2e]">
-              <p className="text-[12px] font-semibold text-white truncate">{userName}</p>
-              <p className="text-[11px] text-neutral-400 truncate">{userEmail}</p>
+              <p className="text-[12px] font-semibold text-white truncate">
+                {userName || (userEmail ? userEmail.split('@')[0] : 'Account')}
+              </p>
+              <p className="text-[11px] text-neutral-400 truncate">
+                {userEmail || 'Active Session'}
+              </p>
             </div>
 
             {onGoToLanding && (

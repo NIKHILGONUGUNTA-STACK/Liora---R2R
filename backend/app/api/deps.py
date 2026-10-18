@@ -26,11 +26,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, settings.AUTH_SECRET_KEY, algorithms=["HS256"])
     except Exception:
-        if token and token.startswith("liora_"):
-            # Fallback for dev session tokens created before JWT issuance
-            user = db.query(User).filter(User.is_active == True).order_by(User.created_at.desc()).first()
-            if user:
-                return user
         raise credentials_exception
 
     user_id = payload.get("sub")
@@ -51,27 +46,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     if user is None and email:
         user = db.query(User).filter(User.email == email).first()
-
-    if user is None and (user_id or email):
-        # Valid JWT signed by AUTH_SECRET_KEY, provision user record if missing
-        user_email = email or f"user_{str(user_id)[:8]}@liora.io"
-        new_id = uuid.UUID(user_id) if isinstance(user_id, str) and len(user_id) == 36 else uuid.uuid4()
-        user = User(
-            id=new_id,
-            email=user_email,
-            first_name=payload.get("firstName") or "User",
-            last_name=payload.get("lastName") or "",
-            role=UserRole.USER.value,
-            password_hash="oauth_or_jwt_session",
-            is_active=True
-        )
-        try:
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        except Exception:
-            db.rollback()
-            user = db.query(User).filter(User.email == user_email).first()
 
     if user is None:
         raise credentials_exception

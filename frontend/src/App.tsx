@@ -154,6 +154,10 @@ export default function App() {
 
   // If user is in Product Workspace (Dark Mode, ChatGPT style)
   if (view === 'product') {
+    if (!session) {
+      navigateTo('/auth?mode=signin');
+      return null;
+    }
     return (
       <ProductView
         session={session}
