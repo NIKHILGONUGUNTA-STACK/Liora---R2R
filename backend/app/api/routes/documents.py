@@ -30,6 +30,7 @@ async def upload_document(
             service.process_document(doc_resp.id)
         except Exception as e:
             logger.error(f"Synchronous ingestion failed for {doc_resp.id}: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
     else:
         def run_process_document(document_id: UUID):
             worker_db = SessionLocal()

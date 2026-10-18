@@ -122,11 +122,30 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Handle file selection from disk (.txt, .pdf, .docx, .ppt)
+  // Handle file selection from disk (.pdf, .docx, .ppt, .txt, .md, .csv)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selected = Array.from(e.target.files);
-      setAttachedFiles((prev) => [...prev, ...selected]);
+      const validFiles: File[] = [];
+      const rejectedImages: string[] = [];
+
+      selected.forEach((file) => {
+        const name = file.name.toLowerCase();
+        const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|ico|heic|raw)$/i.test(name);
+        if (isImage) {
+          rejectedImages.push(file.name);
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (rejectedImages.length > 0) {
+        alert(`Image files are not supported (${rejectedImages.join(', ')}).\nPlease upload documents with extractable text (.pdf, .docx, .ppt, .txt, .md, .csv).`);
+      }
+
+      if (validFiles.length > 0) {
+        setAttachedFiles((prev) => [...prev, ...validFiles]);
+      }
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -337,29 +356,29 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 Files and documents
               </div>
               <div className="text-[11px] text-neutral-400 leading-tight mt-0.5">
-                Upload from device (.txt, .pdf, .docx, .ppt)
+                Upload from device (.pdf, .docx, .ppt, .txt, .md, .csv)
               </div>
             </div>
           </button>
 
           <div className="h-px bg-[#2a2a2a] my-1" />
 
-          {/* Option 2: Images (DISABLED) */}
-          <div className="w-full p-2.5 rounded-xl flex items-start gap-3 text-left opacity-45 cursor-not-allowed select-none">
+          {/* Option 2: Images (REJECTED) */}
+          <div className="w-full p-2.5 rounded-xl flex items-start gap-3 text-left opacity-40 cursor-not-allowed select-none">
             <div className="w-8 h-8 rounded-lg bg-neutral-800 border border-neutral-700 text-neutral-400 flex items-center justify-center shrink-0 mt-0.5">
               <ImageIcon className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-neutral-300">
-                  Images & Visuals
+                <span className="text-xs font-semibold text-neutral-400">
+                  Images (Not supported)
                 </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-neutral-400 border border-[#383838]">
-                  Coming soon
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-neutral-500 border border-[#383838]">
+                  Disabled
                 </span>
               </div>
-              <div className="text-[11px] text-neutral-400 leading-tight mt-0.5">
-                Multimodal visual grounding
+              <div className="text-[11px] text-neutral-500 leading-tight mt-0.5">
+                Extractable text only • Images not supported
               </div>
             </div>
           </div>
@@ -406,7 +425,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
           {/* Subtitle / Footer Notice */}
           <div className="mt-1 pt-2 border-t border-[#2a2a2a] px-2 pb-1 text-[10px] text-neutral-400 leading-tight text-center">
-            Supported: .txt, .pdf, .docx, .ppt • OCR rolling later
+            Supported: .pdf, .docx, .ppt, .txt, .md, .csv • Scanned & images not supported
           </div>
         </div>
       )}
@@ -495,13 +514,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#212121] text-neutral-100 relative overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Hidden native file input accepting .txt, .pdf, .docx, .ppt */}
+      {/* Hidden native file input accepting .pdf, .docx, .pptx, .ppt, .txt, .md, .csv */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         multiple
-        accept=".txt,.pdf,.docx,.doc,.ppt,.pptx"
+        accept=".pdf,.docx,.doc,.pptx,.ppt,.txt,.md,.markdown,.csv,.tsv,.json,.rtf,.log,.html"
         className="hidden"
       />
 

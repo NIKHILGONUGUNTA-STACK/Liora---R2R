@@ -11,3 +11,6 @@ sentence-transformers
 PyJWT
 argon2-cffi
 python-multipart
+pypdf
+python-docx
+python-pptx

@@ -1,3 +1,4 @@
+import os
 import re
 import unicodedata
 from typing import List, Dict, Any, Optional
@@ -55,9 +56,10 @@ class DocumentTextCleaner:
 
     def _normalize_metadata(self, raw_metadata: Dict[str, Any], document_id: str, filename: str, page_count: int) -> Dict[str, Any]:
         """Normalizes document-level metadata to a consistent schema."""
+        ext = os.path.splitext(filename.lower())[1].lstrip('.') if filename else 'pdf'
         normalized = {
             "document_id": document_id,
-            "source_type": "pdf",
+            "source_type": ext or "pdf",
             "source_name": filename,
             "filename": filename,
             "page_count": page_count
