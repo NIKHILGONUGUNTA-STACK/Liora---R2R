@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError
 import random
 import time
 import urllib.parse
@@ -136,11 +137,15 @@ def verify_otp(req: VerifyOTPRequest, db: Session = Depends(get_db)):
             db.commit()
             AuditLogger.log("PASSWORD_UPDATED_VIA_OTP", user_id=str(user.id))
         user_id = str(user.id)
-    except Exception as db_err:
-        AuditLogger.log("DB_OFFLINE_SESSION_ISSUED", details={"email": email, "error": str(db_err)})
-        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, email))
+    except OperationalError as db_err:
+        db.rollback()
+        AuditLogger.log("DB_OFFLINE_ERROR", details={"email": email, "error": str(db_err)})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is temporarily unavailable. Please retry in a few moments."
+        )
 
-    access_token = create_access_token(data={"sub": user_id})
+    access_token = create_access_token(data={"sub": user_id, "email": email.lower()})
     AuditLogger.log("LOGIN_SUCCESS_VIA_OTP", user_id=user_id)
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -160,7 +165,14 @@ def reset_password(req: VerifyOTPRequest, db: Session = Depends(get_db)):
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_in.email).first()
+    email_clean = user_in.email.strip().lower()
+    try:
+        user = db.query(User).filter(User.email == email_clean).first()
+    except OperationalError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is temporarily unavailable. Please retry."
+        )
     if user:
         raise HTTPException(
             status_code=400,
@@ -170,7 +182,7 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     validate_password_complexity(user_in.password)
     hashed_password = get_password_hash(user_in.password)
     new_user = User(
-        email=user_in.email,
+        email=email_clean,
         password_hash=hashed_password
     )
     db.add(new_user)
@@ -180,29 +192,38 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    email_clean = form_data.username.strip().lower()
     user = None
     try:
-        user = db.query(User).filter(User.email == form_data.username).first()
-    except Exception as e:
-        AuditLogger.log("DB_OFFLINE_LOGIN_ATTEMPT", details={"email": form_data.username, "error": str(e)})
+        user = db.query(User).filter(User.email == email_clean).first()
+    except OperationalError as e:
+        AuditLogger.log("DB_OFFLINE_LOGIN_ATTEMPT", details={"email": email_clean, "error": str(e)})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is temporarily unavailable. Please retry in a moment."
+        )
 
-    if user:
-        if not verify_password(form_data.password, user.password_hash):
-            AuditLogger.log("LOGIN_FAILURE", details={"email": form_data.username})
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        if not user.is_active:
-            AuditLogger.log("LOGIN_FAILURE", user_id=str(user.id), details={"reason": "inactive"})
-            raise HTTPException(status_code=400, detail="Inactive user")
-        user_id = str(user.id)
-    else:
-        # Fallback when local DB container is offline
-        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, form_data.username))
+    if not user:
+        AuditLogger.log("LOGIN_FAILURE", details={"email": email_clean, "reason": "user_not_found"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    access_token = create_access_token(data={"sub": user_id})
+    if not verify_password(form_data.password, user.password_hash):
+        AuditLogger.log("LOGIN_FAILURE", details={"email": email_clean, "reason": "invalid_password"})
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        AuditLogger.log("LOGIN_FAILURE", user_id=str(user.id), details={"reason": "inactive"})
+        raise HTTPException(status_code=400, detail="Inactive user")
+
+    user_id = str(user.id)
+    access_token = create_access_token(data={"sub": user_id, "email": user.email.lower()})
     AuditLogger.log("LOGIN_SUCCESS", user_id=user_id)
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -288,11 +309,15 @@ async def google_callback(code: str, request: Request, db: Session = Depends(get
                 user.is_active = True
                 db.commit()
         user_id = str(user.id)
-    except Exception as db_err:
-        AuditLogger.log("DB_OFFLINE_SESSION_ISSUED", details={"email": email, "error": str(db_err), "provider": "google"})
-        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, email))
+    except OperationalError as db_err:
+        db.rollback()
+        AuditLogger.log("DB_OFFLINE_SESSION_FAILED", details={"email": email, "error": str(db_err), "provider": "google"})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is temporarily unavailable. Please retry in a moment."
+        )
 
-    jwt_token = create_access_token(data={"sub": user_id})
+    jwt_token = create_access_token(data={"sub": user_id, "email": email.lower()})
     AuditLogger.log("LOGIN_SUCCESS_VIA_GOOGLE_OAUTH", user_id=user_id)
 
     frontend_redirect = f"{settings.FRONTEND_URL}/signin?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=google"
@@ -386,11 +411,15 @@ async def github_callback(code: str, request: Request, db: Session = Depends(get
                 user.is_active = True
                 db.commit()
         user_id = str(user.id)
-    except Exception as db_err:
-        AuditLogger.log("DB_OFFLINE_SESSION_ISSUED", details={"email": email, "error": str(db_err), "provider": "github"})
-        user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, email))
+    except OperationalError as db_err:
+        db.rollback()
+        AuditLogger.log("DB_OFFLINE_SESSION_FAILED", details={"email": email, "error": str(db_err), "provider": "github"})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database service is temporarily unavailable. Please retry in a moment."
+        )
 
-    jwt_token = create_access_token(data={"sub": user_id})
+    jwt_token = create_access_token(data={"sub": user_id, "email": email.lower()})
     AuditLogger.log("LOGIN_SUCCESS_VIA_GITHUB_OAUTH", user_id=user_id)
 
     frontend_redirect = f"{settings.FRONTEND_URL}/signin?token={jwt_token}&email={urllib.parse.quote(email)}&name={urllib.parse.quote(name)}&provider=github"
