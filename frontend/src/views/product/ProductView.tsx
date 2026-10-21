@@ -225,7 +225,7 @@ export const ProductView: React.FC<ProductViewProps> = ({
       {/* Main product area */}
       <main
         className={`flex-1 h-screen bg-[#212121] flex flex-col transition-all duration-200 overflow-hidden relative ${
-          isSidebarCollapsed ? 'ml-14' : 'ml-72'
+          isSidebarCollapsed ? 'ml-14' : 'ml-60'
         }`}
       >
         {currentTab === 'chat-and-research' ? (

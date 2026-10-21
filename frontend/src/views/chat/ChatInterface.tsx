@@ -13,11 +13,14 @@ import {
   Loader2,
   File,
   AlertCircle,
-  Layers,
-  BookOpen,
-  ChevronRight,
   ShieldCheck,
   Quote,
+  BookOpen,
+  ExternalLink,
+  ChevronRight,
+  ChevronLeft,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { LioraLogo } from '../../components/LioraLogo';
 import { getStoredMessages, saveStoredMessages } from '../../lib/chatStorage';
@@ -59,7 +62,6 @@ export interface ChatMessage {
   generatingStatus?: string;
   citations?: ChatCitation[];
   rawSources?: RawSourceItem[];
-  viewMode?: 'summary' | 'sources';
   error?: boolean;
 }
 
@@ -98,6 +100,20 @@ const getSourceDetails = (
         section: foundCit.section,
         chunkId: foundCit.chunkId,
         chunkIndex: foundCit.chunkIndex,
+      };
+    }
+    // 1-based index fallback for citations
+    if (!isNaN(num) && num > 0 && num <= citations.length) {
+      const idxItem = citations[num - 1];
+      return {
+        sourceId: idxItem.sourceId,
+        filename: idxItem.source,
+        page: idxItem.page,
+        snippet: idxItem.snippet,
+        similarityScore: idxItem.similarityScore,
+        section: idxItem.section,
+        chunkId: idxItem.chunkId,
+        chunkIndex: idxItem.chunkIndex,
       };
     }
   }
@@ -141,8 +157,53 @@ const getSourceDetails = (
   return undefined;
 };
 
+export interface DetailedSourceItem {
+  sourceNumber: number;
+  sourceId: string;
+  filename: string;
+  page?: number;
+  snippet?: string;
+  similarityScore?: number;
+  section?: string;
+  chunkId?: string;
+  chunkIndex?: number;
+}
+
+export const getNormalizedSources = (
+  citations?: ChatCitation[],
+  rawSources?: RawSourceItem[]
+): DetailedSourceItem[] => {
+  if (citations && citations.length > 0) {
+    return citations.map((c, idx) => ({
+      sourceNumber: idx + 1,
+      sourceId: c.sourceId,
+      filename: c.source,
+      page: c.page,
+      snippet: c.snippet,
+      similarityScore: c.similarityScore,
+      section: c.section,
+      chunkId: c.chunkId,
+      chunkIndex: c.chunkIndex,
+    }));
+  }
+  if (rawSources && rawSources.length > 0) {
+    return rawSources.map((r, idx) => ({
+      sourceNumber: idx + 1,
+      sourceId: r.sourceId,
+      filename: r.filename,
+      page: r.page,
+      snippet: r.snippet,
+      similarityScore: r.similarityScore,
+      section: r.section,
+      chunkId: r.chunkId,
+      chunkIndex: r.chunkIndex,
+    }));
+  }
+  return [];
+};
+
 /**
- * Interactive Citation Badge with Hover Tooltip Clean Card
+ * Interactive Citation Badge with Hover Tooltip and Click-to-open Drawer
  */
 const CitationBadge: React.FC<{
   sourceNumber: string;
@@ -156,8 +217,8 @@ const CitationBadge: React.FC<{
     chunkId?: string;
     chunkIndex?: number;
   };
-  onOpenSources?: () => void;
-}> = ({ sourceNumber, sourceInfo, onOpenSources }) => {
+  onSelect?: () => void;
+}> = ({ sourceNumber, sourceInfo, onSelect }) => {
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -193,19 +254,26 @@ const CitationBadge: React.FC<{
     >
       <button
         type="button"
-        onClick={onOpenSources}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect?.();
+        }}
         className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-blue-500/15 hover:bg-blue-500/30 border border-blue-500/35 text-blue-300 hover:text-blue-100 text-[11px] font-semibold font-mono transition-all cursor-pointer shadow-xs active:scale-95"
-        title="View citation evidence"
+        title={`Click to view Source ${sourceNumber}: ${filename}${page ? ` (p. ${page})` : ''} in panel`}
       >
         <span>[{sourceNumber}]</span>
       </button>
 
-      {/* Floating Tooltip Clean Card */}
+      {/* Floating Tooltip Clean Card with Click Action */}
       {isHovered && (
         <div
           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 sm:w-96 p-3.5 rounded-2xl bg-[#1a1a1a]/98 backdrop-blur-xl border border-[#3a3a3a] shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-50 text-left pointer-events-auto animate-fade-in"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect?.();
+          }}
         >
           {/* Header Row */}
           <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-[#2d2d2d]">
@@ -246,20 +314,15 @@ const CitationBadge: React.FC<{
           <div className="text-[10px] uppercase font-semibold tracking-wider text-neutral-400 mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1">
               <Quote className="w-3 h-3 text-blue-400" />
-              Original Grounding Passage
+              Grounding Excerpt
             </span>
-            {onOpenSources && (
-              <span
-                onClick={onOpenSources}
-                className="text-blue-400 hover:text-blue-300 cursor-pointer normal-case text-[11px] hover:underline"
-              >
-                Inspect sources →
-              </span>
-            )}
+            <span className="text-[10px] text-blue-400 flex items-center gap-1 hover:underline">
+              Inspect in panel <ExternalLink className="w-2.5 h-2.5" />
+            </span>
           </div>
 
           {/* Verbatim text snippet */}
-          <div className="p-2.5 rounded-xl bg-[#111111] border border-[#282828] text-neutral-200 text-xs font-mono leading-relaxed max-h-40 overflow-y-auto selection:bg-blue-600/30 whitespace-pre-wrap">
+          <div className="p-2.5 rounded-xl bg-[#111111] border border-[#282828] text-neutral-300 text-xs font-mono leading-relaxed max-h-32 overflow-y-auto selection:bg-blue-600/30 whitespace-pre-wrap">
             {snippet || 'Verbatim retrieved chunk stored in deterministic pgvector index.'}
           </div>
 
@@ -269,11 +332,9 @@ const CitationBadge: React.FC<{
               <ShieldCheck className="w-3 h-3 text-emerald-400" />
               pgvector deterministic proof
             </span>
-            {sourceInfo?.chunkId && (
-              <span className="font-mono text-neutral-400">
-                Chunk #{sourceInfo.chunkIndex !== undefined ? sourceInfo.chunkIndex : sourceInfo.chunkId.slice(0, 6)}
-              </span>
-            )}
+            <span className="text-blue-400 font-medium flex items-center gap-0.5">
+              Click to inspect →
+            </span>
           </div>
         </div>
       )}
@@ -282,138 +343,244 @@ const CitationBadge: React.FC<{
 };
 
 /**
- * Interactive Citation Pill for the Bottom Sources Bar
+ * Grounding Sources Drawer with Expandable Full-Drawer & Clean Focus
  */
-const CitationPill: React.FC<{
-  citation: ChatCitation;
-  sourceNumber: number;
-  onOpenSources?: () => void;
-}> = ({ citation, sourceNumber, onOpenSources }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+const SourceDrawer: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  sources: DetailedSourceItem[];
+  activeIndex: number;
+  onSelectIndex: (index: number) => void;
+}> = ({ isOpen, onClose, sources, activeIndex, onSelectIndex }) => {
+  const [copied, setCopied] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setIsHovered(true);
-  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowLeft' && activeIndex > 0) {
+        onSelectIndex(activeIndex - 1);
+      } else if (e.key === 'ArrowRight' && activeIndex < sources.length - 1) {
+        onSelectIndex(activeIndex + 1);
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, activeIndex, sources.length, onSelectIndex]);
 
-  const handleMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setIsHovered(false);
-    }, 220);
-  };
+  if (!isOpen || sources.length === 0) return null;
 
+  const currentSource = sources[activeIndex] || sources[0];
   const matchPct =
-    citation.similarityScore !== undefined
+    currentSource.similarityScore !== undefined
       ? Math.round(
-          citation.similarityScore <= 1
-            ? citation.similarityScore * 100
-            : citation.similarityScore
+          currentSource.similarityScore <= 1
+            ? currentSource.similarityScore * 100
+            : currentSource.similarityScore
         )
       : undefined;
 
+  const handleCopy = () => {
+    if (currentSource.snippet) {
+      navigator.clipboard.writeText(currentSource.snippet);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   return (
-    <div
-      className="relative inline-block"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <button
-        type="button"
-        onClick={onOpenSources}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#242424] hover:bg-[#2c2c2c] border border-[#353535] hover:border-neutral-500 text-xs text-neutral-300 transition-colors cursor-pointer group shadow-xs"
+    <>
+      {/* Semi-transparent backdrop */}
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[100] transition-opacity animate-fade-in"
+        onClick={onClose}
+      />
+
+      {/* Slide-out Sheet / Full Drawer */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 ${
+          isFullScreen ? 'w-full' : 'w-full sm:w-[560px] md:w-[680px]'
+        } bg-[#161616] border-l border-[#2e2e2e] shadow-[0_0_50px_rgba(0,0,0,0.8)] z-[101] flex flex-col font-['Plus_Jakarta_Sans',sans-serif] transition-all duration-200 animate-slide-left`}
       >
-        <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 font-bold">
-          [{sourceNumber}]
-        </span>
-        <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-        <span className="max-w-[160px] truncate group-hover:text-white">
-          {citation.source}
-        </span>
-        {citation.page !== undefined && (
-          <span className="text-[10px] text-neutral-400 font-mono">
-            p. {citation.page}
-          </span>
-        )}
-      </button>
-
-      {/* Floating Tooltip Clean Card */}
-      {isHovered && (
-        <div
-          className="absolute bottom-full left-0 mb-2 w-80 sm:w-96 p-3.5 rounded-2xl bg-[#1a1a1a]/98 backdrop-blur-xl border border-[#3a3a3a] shadow-[0_16px_40px_rgba(0,0,0,0.7)] z-50 text-left pointer-events-auto animate-fade-in"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* Header Row */}
-          <div className="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-[#2d2d2d]">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold uppercase tracking-wider shrink-0">
-                Source {sourceNumber}
-              </span>
-              <div className="flex items-center gap-1 text-xs font-semibold text-neutral-200 truncate">
-                <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="truncate max-w-[150px]" title={citation.source}>
-                  {citation.source}
-                </span>
+        {/* Header with Mac Camera lens notch aesthetic */}
+        <div className="p-4 border-b border-[#262626] flex items-center justify-between shrink-0 bg-[#191919]">
+          <div className="flex items-center gap-2.5">
+            {/* Mac M4 Camera Lens Glowing Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/80 border border-[#333333] shadow-inner">
+              <div className="relative flex items-center justify-center w-2 h-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </div>
+              <span className="text-xs font-semibold text-neutral-200 tracking-tight">
+                Verified Sources
+              </span>
+              <span className="px-1.5 py-0.2 rounded-full bg-[#242424] text-[10px] font-mono text-neutral-400">
+                {sources.length}
+              </span>
             </div>
+          </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {citation.page !== undefined && (
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#262626] text-neutral-300 border border-[#383838]">
-                  Page {citation.page}
-                </span>
+          {/* Right Header Action Icons */}
+          <div className="flex items-center gap-1.5">
+            {/* Full Drawer / Side Drawer Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setIsFullScreen((prev) => !prev)}
+              className="w-8 h-8 rounded-lg hover:bg-[#262626] text-neutral-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title={isFullScreen ? 'Collapse to side drawer' : 'Expand to full screen drawer'}
+            >
+              {isFullScreen ? (
+                <Minimize2 className="w-4 h-4" />
+              ) : (
+                <Maximize2 className="w-4 h-4" />
               )}
+            </button>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg hover:bg-[#262626] text-neutral-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+              title="Close drawer (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Source Switcher Tab Pills */}
+        {sources.length > 1 && (
+          <div className="px-4 py-2.5 border-b border-[#242424] bg-[#141414] flex items-center gap-2 overflow-x-auto scrollbar-thin shrink-0">
+            {sources.map((s, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => onSelectIndex(idx)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                  activeIndex === idx
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-[#202020] text-neutral-400 hover:text-neutral-200 hover:bg-[#282828] border border-[#2f2f2f]'
+                }`}
+              >
+                <span className="font-mono text-[11px] opacity-80">[{idx + 1}]</span>
+                <span className="max-w-[140px] sm:max-w-[180px] truncate">{s.filename}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Active Source Content (Scrollable, Clean, Focused on Understanding) */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+          {/* Document Overview Card */}
+          <div className="p-4 rounded-2xl bg-[#1f1f1f] border border-[#2e2e2e] shadow-sm flex flex-col gap-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-sm font-semibold text-neutral-100 truncate" title={currentSource.filename}>
+                    {currentSource.filename}
+                  </h4>
+                  <div className="text-[11.5px] text-neutral-400 flex items-center gap-2 mt-0.5">
+                    <span className="font-medium text-neutral-300">Source [{currentSource.sourceNumber}]</span>
+                    {currentSource.page !== undefined && (
+                      <>
+                        <span>•</span>
+                        <span className="font-mono text-neutral-300">Page {currentSource.page}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {matchPct !== undefined && (
-                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-semibold shrink-0">
                   {matchPct}% match
                 </span>
               )}
             </div>
+
+            {currentSource.section && (
+              <div className="text-xs text-neutral-300 bg-[#171717] px-3 py-1.5 rounded-lg border border-[#282828] flex items-center gap-1.5 mt-1">
+                <span className="text-neutral-500 font-medium">Section:</span>
+                <span className="font-medium text-neutral-200 truncate">{currentSource.section}</span>
+              </div>
+            )}
           </div>
 
-          {citation.section && (
-            <div className="text-[11px] text-neutral-400 font-medium mb-2 truncate">
-              <span className="text-neutral-500">Section:</span> {citation.section}
-            </div>
-          )}
-
-          {/* Grounding excerpt label */}
-          <div className="text-[10px] uppercase font-semibold tracking-wider text-neutral-400 mb-1 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Quote className="w-3 h-3 text-blue-400" />
-              Original Grounding Passage
-            </span>
-            {onOpenSources && (
-              <span
-                onClick={onOpenSources}
-                className="text-blue-400 hover:text-blue-300 cursor-pointer normal-case text-[11px] hover:underline"
+          {/* Clean Verbatim Grounding Passage Box */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-neutral-300 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                <Quote className="w-3.5 h-3.5 text-blue-400" />
+                Grounding Passage
+              </span>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white px-2.5 py-1 rounded-lg bg-[#222222] hover:bg-[#2b2b2b] border border-[#333333] transition-colors cursor-pointer"
+                title="Copy passage text"
               >
-                Inspect sources →
-              </span>
-            )}
-          </div>
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 font-medium">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
 
-          {/* Verbatim text snippet */}
-          <div className="p-2.5 rounded-xl bg-[#111111] border border-[#282828] text-neutral-200 text-xs font-mono leading-relaxed max-h-40 overflow-y-auto selection:bg-blue-600/30 whitespace-pre-wrap">
-            {citation.snippet || 'Verbatim retrieved chunk stored in deterministic pgvector index.'}
-          </div>
-
-          {/* Footer note */}
-          <div className="mt-2 text-[10px] text-neutral-500 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
-              pgvector deterministic proof
-            </span>
-            {citation.chunkId && (
-              <span className="font-mono text-neutral-400">
-                Chunk #{citation.chunkIndex !== undefined ? citation.chunkIndex : citation.chunkId.slice(0, 6)}
-              </span>
-            )}
+            <div className="p-4 sm:p-5 rounded-2xl bg-[#0f0f0f] border border-[#262626] text-neutral-200 text-sm leading-relaxed max-h-[58vh] overflow-y-auto whitespace-pre-wrap select-text selection:bg-blue-600/30 font-mono">
+              {currentSource.snippet || 'Verbatim retrieved chunk from deterministic vector index.'}
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Footer Navigation */}
+        <div className="p-4 border-t border-[#262626] bg-[#141414] flex items-center justify-between shrink-0">
+          <button
+            type="button"
+            disabled={activeIndex <= 0}
+            onClick={() => onSelectIndex(activeIndex - 1)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+              activeIndex > 0
+                ? 'bg-[#222222] hover:bg-[#2a2a2a] text-neutral-200 border border-[#333333]'
+                : 'text-neutral-600 cursor-not-allowed opacity-40'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Previous</span>
+          </button>
+
+          <span className="text-xs text-neutral-400 font-mono">
+            {activeIndex + 1} of {sources.length}
+          </span>
+
+          <button
+            type="button"
+            disabled={activeIndex >= sources.length - 1}
+            onClick={() => onSelectIndex(activeIndex + 1)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors cursor-pointer ${
+              activeIndex < sources.length - 1
+                ? 'bg-[#222222] hover:bg-[#2a2a2a] text-neutral-200 border border-[#333333]'
+                : 'text-neutral-600 cursor-not-allowed opacity-40'
+            }`}
+          >
+            <span>Next</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </>
   );
 };
 
@@ -422,13 +589,13 @@ const CitationPill: React.FC<{
  * - Bold text without raw asterisks
  * - Structured section headers
  * - Custom bullet lists with colored bullet dots
- * - Inline interactive citation badges with hover tooltip clean cards
+ * - Inline interactive citation badges with hover tooltip and click-to-open drawer
  */
 const renderInlineContent = (
   text: string,
   citations?: ChatCitation[],
   rawSources?: RawSourceItem[],
-  onOpenSources?: () => void
+  onSelectCitation?: (sourceNumber: string) => void
 ): React.ReactNode => {
   // Regex pattern matching **bold** and [Source X] or [X]
   const pattern = /(\*\*(?:.*?)\*\*|\[(?:Source\s*)?(\d+)\])/g;
@@ -468,7 +635,7 @@ const renderInlineContent = (
           key={`cit-${matchStart}-${sourceNum}`}
           sourceNumber={sourceNum}
           sourceInfo={sourceInfo}
-          onOpenSources={onOpenSources}
+          onSelect={() => onSelectCitation?.(sourceNum)}
         />
       );
     }
@@ -494,8 +661,8 @@ const StructuredAnswer: React.FC<{
   content: string;
   citations?: ChatCitation[];
   rawSources?: RawSourceItem[];
-  onOpenSources?: () => void;
-}> = ({ content, citations, rawSources, onOpenSources }) => {
+  onSelectCitation?: (sourceNumber: string) => void;
+}> = ({ content, citations, rawSources, onSelectCitation }) => {
   const paragraphs = content.split(/\n\n+/);
 
   return (
@@ -524,7 +691,7 @@ const StructuredAnswer: React.FC<{
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-2 shrink-0 shadow-xs" />
                       )}
                       <div className="flex-1 text-neutral-200 leading-relaxed">
-                        {renderInlineContent(itemContent, citations, rawSources, onOpenSources)}
+                        {renderInlineContent(itemContent, citations, rawSources, onSelectCitation)}
                       </div>
                     </div>
                   );
@@ -542,7 +709,7 @@ const StructuredAnswer: React.FC<{
 
                 return (
                   <p key={lIdx} className="leading-relaxed">
-                    {renderInlineContent(line, citations, rawSources, onOpenSources)}
+                    {renderInlineContent(line, citations, rawSources, onSelectCitation)}
                   </p>
                 );
               })}
@@ -573,13 +740,14 @@ const StructuredAnswer: React.FC<{
 
         return (
           <p key={pIdx} className="leading-relaxed">
-            {renderInlineContent(trimmed, citations, rawSources, onOpenSources)}
+            {renderInlineContent(trimmed, citations, rawSources, onSelectCitation)}
           </p>
         );
       })}
     </div>
   );
 };
+
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   chatId,
@@ -593,8 +761,44 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [copiedPassageId, setCopiedPassageId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [drawerState, setDrawerState] = useState<{
+    isOpen: boolean;
+    activeIndex: number;
+    sources: DetailedSourceItem[];
+  }>({
+    isOpen: false,
+    activeIndex: 0,
+    sources: [],
+  });
+
+  const openDrawerForMessage = (msg: ChatMessage, initialIndex: number = 0) => {
+    const sources = getNormalizedSources(msg.citations, msg.rawSources);
+    if (sources.length > 0) {
+      setDrawerState({
+        isOpen: true,
+        activeIndex: Math.max(0, Math.min(initialIndex, sources.length - 1)),
+        sources,
+      });
+    }
+  };
+
+  const openDrawerBySourceNum = (msg: ChatMessage, sourceNumStr: string) => {
+    const sources = getNormalizedSources(msg.citations, msg.rawSources);
+    const num = parseInt(sourceNumStr, 10);
+    let targetIdx = 0;
+    if (!isNaN(num) && num > 0) {
+      targetIdx = num - 1;
+    } else {
+      const foundIdx = sources.findIndex((s) => s.sourceId.includes(sourceNumStr));
+      if (foundIdx !== -1) targetIdx = foundIdx;
+    }
+    setDrawerState({
+      isOpen: true,
+      activeIndex: Math.max(0, Math.min(targetIdx, sources.length - 1)),
+      sources,
+    });
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -726,25 +930,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Copy source passage
-  const handleCopyPassage = (passageId: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedPassageId(passageId);
-    setTimeout(() => setCopiedPassageId(null), 2000);
-  };
-
-  // Toggle view mode between 'summary' and 'sources'
-  const handleToggleViewMode = (messageId: string, mode: 'summary' | 'sources') => {
-    setMessages((prev) => {
-      const updated = prev.map((m) =>
-        m.id === messageId ? { ...m, viewMode: mode } : m
-      );
-      if (chatId) {
-        saveStoredMessages(chatId, updated);
-      }
-      return updated;
-    });
-  };
 
   // Send query or process attachments
   const handleSend = async () => {
@@ -781,7 +966,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       content: '',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isGenerating: true,
-      viewMode: 'summary',
       generatingStatus: filesToUpload.length > 0
         ? `Uploading & indexing ${filesToUpload[0].name} into pgvector...`
         : 'Searching verified knowledge chunks in pgvector...',
@@ -882,7 +1066,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 generatingStatus: undefined,
                 citations: citations,
                 rawSources: rawSources,
-                viewMode: 'summary' as const,
               }
             : m
         );
@@ -1104,7 +1287,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* CASE 1: EMPTY / NEW CHAT (ChatGPT-style Center Placement) */}
       {messages.length === 0 ? (
         <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center px-4 py-8 animate-fade-in">
-          <div className="w-full max-w-3xl flex flex-col items-center my-auto">
+          <div className="w-full max-w-[820px] flex flex-col items-center my-auto">
             {/* Center Brand & Heading */}
             <div className="flex flex-col items-center mb-7 select-none text-center">
               <div className="w-10 h-10 rounded-2xl bg-[#262626] border border-[#383838] flex items-center justify-center mb-4 shadow-sm">
@@ -1126,326 +1309,200 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
           {/* Scrollable Message Thread */}
           <div className="flex-1 overflow-y-auto px-4 pt-14 pb-6 scroll-smooth">
-            <div className="max-w-3xl mx-auto flex flex-col gap-6 pb-6">
-              {messages.map((msg) => (
-                <div key={msg.id} className="flex flex-col gap-3 animate-fade-in">
-                  {/* USER MESSAGE: Blue Bubble */}
-                  {msg.role === 'user' ? (
-                    <div className="flex justify-end items-start gap-3">
-                      <div className="max-w-xl flex flex-col items-end gap-1.5">
-                        {/* Attached files pill above user message */}
-                        {msg.attachments && msg.attachments.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 justify-end mb-0.5">
-                            {msg.attachments.map((file, i) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#1e293b] border border-blue-500/30 text-blue-200 text-xs font-medium shadow-sm"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-blue-400" />
-                                <span className="max-w-[200px] truncate">{file.name}</span>
-                                <span className="text-[10px] text-blue-300/80">
-                                  ({formatFileSize(file.size)})
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+            <div className="max-w-[820px] mx-auto flex flex-col gap-6 pb-6">
+              {messages.map((msg) => {
+                const messageSources = getNormalizedSources(msg.citations, msg.rawSources);
 
-                        {/* Blue User Bubble */}
-                        {msg.content && (
-                          <div className="px-4 py-2.5 rounded-3xl rounded-tr-sm bg-blue-600 text-white text-[14px] leading-relaxed whitespace-pre-wrap shadow-sm selection:bg-blue-800">
-                            {msg.content}
-                          </div>
-                        )}
-                        <span className="text-[10px] text-neutral-500 mr-1">
-                          {msg.timestamp}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    /* ASSISTANT MESSAGE: Pure Clean Flow with Dual-Mode Switcher */
-                    <div className="flex justify-start items-start gap-3.5 w-full">
-                      <div className="w-7 h-7 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center shrink-0 mt-1 shadow-sm">
-                        <LioraLogo size={18} />
-                      </div>
-
-                      <div className="flex-1 flex flex-col gap-2.5 min-w-0 pt-0.5">
-                        {/* Top Dual Mode Switcher Bar */}
-                        {!msg.isGenerating && !msg.error && msg.content && (
-                          <div className="flex items-center justify-between gap-2 pb-1 border-b border-[#282828]">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-neutral-300 tracking-tight">
-                                Liora Verified Answer
-                              </span>
-                              <span className="px-1.5 py-0.2 rounded text-[10px] bg-[#292929] text-neutral-400 font-mono">
-                                R2R Deterministic
-                              </span>
-                            </div>
-
-                            {/* Dual Mode Switcher Pill */}
-                            <div className="flex items-center gap-1 p-0.5 rounded-xl bg-[#191919] border border-[#303030] shadow-xs">
-                              {/* Summary Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleViewMode(msg.id, 'summary')}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  (msg.viewMode || 'summary') === 'summary'
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-[#252525]'
-                                }`}
-                                title="Show synthesized structured summary"
-                              >
-                                <Sparkles className="w-3 h-3" />
-                                <span>Summary</span>
-                              </button>
-
-                              {/* Original Sources Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleViewMode(msg.id, 'sources')}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                                  msg.viewMode === 'sources'
-                                    ? 'bg-blue-600 text-white shadow-sm'
-                                    : 'text-neutral-400 hover:text-neutral-200 hover:bg-[#252525]'
-                                }`}
-                                title="Show original verbatim retrieved evidence"
-                              >
-                                <Layers className="w-3 h-3" />
-                                <span>Original Sources</span>
-                                <span
-                                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                                    msg.viewMode === 'sources'
-                                      ? 'bg-blue-700 text-white'
-                                      : 'bg-[#2b2b2b] text-neutral-400'
-                                  }`}
-                                >
-                                  {msg.rawSources?.length || msg.citations?.length || 0}
-                                </span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Minimal Transitioning Generating Status */}
-                        {msg.isGenerating && (
-                          <div className="flex items-center gap-2.5 text-xs text-neutral-400 py-1 animate-fade-in">
-                            <div className="relative flex items-center justify-center w-3 h-3">
-                              <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-400 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-blue-500" />
-                            </div>
-                            <span className="text-neutral-300 font-medium">
-                              {msg.generatingStatus || 'Searching verified knowledge...'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Error State if API call failed */}
-                        {msg.error && (
-                          <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/20 border border-red-900/30 px-3 py-2 rounded-xl w-fit">
-                            <AlertCircle className="w-4 h-4 shrink-0" />
-                            <span>{msg.content}</span>
-                          </div>
-                        )}
-
-                        {/* VIEW MODE 1: SUMMARY (Rewritten Structured Answer, 100% Asterisk Free) */}
-                        {!msg.error && msg.content && (msg.viewMode || 'summary') === 'summary' && (
-                          <div className="flex flex-col gap-3">
-                            <StructuredAnswer
-                              content={msg.content}
-                              citations={msg.citations}
-                              rawSources={msg.rawSources}
-                              onOpenSources={() => handleToggleViewMode(msg.id, 'sources')}
-                            />
-
-                            {/* Verified Citation Proof Pills with Hover Cards */}
-                            {msg.citations && msg.citations.length > 0 && (
-                              <div className="pt-2.5 mt-1 border-t border-[#292929] flex flex-col gap-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                    <span>Verified Grounding Sources ({msg.citations.length})</span>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleViewMode(msg.id, 'sources')}
-                                    className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                                  >
-                                    <span>Inspect verbatim passages</span>
-                                    <ChevronRight className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                  {msg.citations.map((cite, i) => (
-                                    <CitationPill
-                                      key={i}
-                                      citation={cite}
-                                      sourceNumber={i + 1}
-                                      onOpenSources={() => handleToggleViewMode(msg.id, 'sources')}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* VIEW MODE 2: ORIGINAL SOURCES (Raw Verbatim Retrieval from pgvector) */}
-                        {!msg.error && msg.content && msg.viewMode === 'sources' && (
-                          <div className="flex flex-col gap-3.5 animate-fade-in">
-                            {/* Evidence Info Card */}
-                            <div className="p-3 rounded-2xl bg-[#171e2e]/60 border border-blue-500/20 flex items-start gap-3">
-                              <BookOpen className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-                              <div className="text-xs text-neutral-300 leading-relaxed">
-                                <span className="font-semibold text-white">Dual-Mode Hybrid Evidence: </span>
-                                Below are the verbatim, unmodified source text chunks retrieved by pgvector that grounded the AI answer.
-                              </div>
-                            </div>
-
-                            {/* Render Each Retrieved Source Chunk */}
-                            {((msg.rawSources && msg.rawSources.length > 0)
-                              ? msg.rawSources
-                              : (msg.citations || []).map((c, i) => ({
-                                  sourceId: c.sourceId || `Source ${i + 1}`,
-                                  filename: c.source,
-                                  page: c.page,
-                                  snippet: c.snippet || 'Verbatim text excerpt grounded in pgvector index.',
-                                  similarityScore: c.similarityScore || 0,
-                                  section: c.section,
-                                  chunkId: c.chunkId,
-                                  chunkIndex: c.chunkIndex,
-                                }))
-                            ).map((src, sIdx) => {
-                              const matchPct = Math.round(
-                                src.similarityScore <= 1
-                                  ? src.similarityScore * 100
-                                  : src.similarityScore
-                              );
-                              const passageKey = `${msg.id}-${sIdx}`;
-
-                              return (
+                return (
+                  <div key={msg.id} className="flex flex-col gap-3 animate-fade-in">
+                    {/* USER MESSAGE: Deep Dark Bubble with Copy Option */}
+                    {msg.role === 'user' ? (
+                      <div className="flex justify-end items-start gap-3">
+                        <div className="max-w-[680px] flex flex-col items-end gap-1.5">
+                          {/* Attached files pill above user message */}
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 justify-end mb-0.5">
+                              {msg.attachments.map((file, i) => (
                                 <div
-                                  key={sIdx}
-                                  className="rounded-2xl bg-[#1a1a1a] border border-[#303030] overflow-hidden p-4 flex flex-col gap-3 shadow-md hover:border-neutral-500 transition-colors"
+                                  key={i}
+                                  className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-[#222222] border border-[#333333] text-neutral-200 text-xs font-medium shadow-sm"
                                 >
-                                  {/* Source Header */}
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <div className="flex items-center gap-2">
-                                      <span className="px-2 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 font-bold text-xs uppercase tracking-wider">
-                                        {src.sourceId || `Source ${sIdx + 1}`}
-                                      </span>
-                                      <div className="flex items-center gap-1.5 text-neutral-200 text-xs font-semibold">
-                                        <FileText className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                                        <span className="max-w-[200px] sm:max-w-xs truncate" title={src.filename}>
-                                          {src.filename}
-                                        </span>
-                                      </div>
-                                      {src.page !== undefined && (
-                                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#252525] text-neutral-300 border border-[#383838]">
-                                          Page {src.page}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                      {src.section && (
-                                        <span className="text-[11px] text-neutral-400 font-medium truncate max-w-[150px]">
-                                          Sec: {src.section}
-                                        </span>
-                                      )}
-                                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                                        {matchPct}% match
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Verbatim Source Chunk Text */}
-                                  <div className="relative group">
-                                    <div className="p-3.5 rounded-xl bg-[#111111] border border-[#262626] text-neutral-200 text-xs font-mono leading-relaxed select-text whitespace-pre-wrap selection:bg-blue-600/30">
-                                      {src.snippet}
-                                    </div>
-
-                                    {/* Quick Copy Passage Button */}
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopyPassage(passageKey, src.snippet)}
-                                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-[#222222]/90 hover:bg-[#333333] text-neutral-400 hover:text-white border border-[#3a3a3a] opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-sm"
-                                      title="Copy verbatim passage"
-                                    >
-                                      {copiedPassageId === passageKey ? (
-                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                      ) : (
-                                        <Copy className="w-3.5 h-3.5" />
-                                      )}
-                                    </button>
-                                  </div>
-
-                                  {/* Source Footer Details */}
-                                  <div className="flex items-center justify-between text-[11px] text-neutral-500 border-t border-[#262626] pt-2">
-                                    <span className="font-mono text-neutral-400">
-                                      Chunk Index: {src.chunkIndex !== undefined ? src.chunkIndex : sIdx}
-                                    </span>
-                                    {src.chunkId && (
-                                      <span className="font-mono text-[10px] text-neutral-500 truncate max-w-[200px]" title={src.chunkId}>
-                                        UUID: {src.chunkId}
-                                      </span>
-                                    )}
-                                  </div>
+                                  <FileText className="w-3.5 h-3.5 text-neutral-400" />
+                                  <span className="max-w-[200px] truncate">{file.name}</span>
+                                  <span className="text-[10px] text-neutral-400">
+                                    ({formatFileSize(file.size)})
+                                  </span>
                                 </div>
-                              );
-                            })}
-
-                            {/* Back to Summary Link */}
-                            <div className="flex justify-end pt-1">
-                              <button
-                                type="button"
-                                onClick={() => handleToggleViewMode(msg.id, 'summary')}
-                                className="px-3 py-1.5 rounded-xl bg-[#262626] hover:bg-[#303030] text-xs text-neutral-300 hover:text-white font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                              >
-                                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                                <span>Switch back to Synthesized Summary</span>
-                              </button>
+                              ))}
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {/* Bottom Action Buttons (Copy, timestamp) */}
-                        {!msg.isGenerating && msg.content && (
-                          <div className="flex items-center gap-2 mt-1 text-neutral-500">
+                          {/* Deep Charcoal / Dark Black User Bubble */}
+                          {msg.content && (
+                            <div className="px-4.5 py-3 rounded-3xl rounded-tr-md bg-[#181818] hover:bg-[#1d1d1d] border border-[#2b2b2b] text-neutral-100 text-[14.5px] leading-relaxed whitespace-pre-wrap shadow-sm selection:bg-neutral-700 transition-colors">
+                              {msg.content}
+                            </div>
+                          )}
+
+                          {/* User Message Footer: Copy Prompt button + Timestamp */}
+                          <div className="flex items-center gap-1.5 mr-1 text-neutral-500">
                             <button
                               type="button"
                               onClick={() => handleCopy(msg.id, msg.content)}
-                              className="p-1 rounded-md hover:bg-[#2a2a2a] hover:text-neutral-300 transition-colors cursor-pointer"
-                              title="Copy response"
+                              className="p-1 rounded-md hover:bg-[#282828] hover:text-neutral-300 transition-colors cursor-pointer"
+                              title="Copy prompt"
                             >
                               {copiedId === msg.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                <Check className="w-3 h-3 text-emerald-400" />
                               ) : (
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-3 h-3" />
                               )}
                             </button>
-                            <span className="text-[10px]">
+                            <span className="text-[10px] font-mono">
                               {msg.timestamp}
                             </span>
                           </div>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    ) : (
+                      /* ASSISTANT MESSAGE: Clean Left-Aligned Flow with Mac M4 Notch Citation Pill */
+                      <div className="flex justify-start items-start w-full">
+                        <div className="flex-1 flex flex-col gap-2.5 min-w-0">
+                          {/* Minimal Transitioning Generating Status with Spinning Generating Symbol */}
+                          {msg.isGenerating && (
+                            <div className="flex items-center gap-2.5 py-2 animate-fade-in">
+                              <div className="relative flex items-center justify-center w-4 h-4">
+                                <Sparkles className="w-4 h-4 text-blue-400 animate-spin" />
+                              </div>
+                              <span className="text-sm text-neutral-300 font-medium">
+                                {msg.generatingStatus || 'Searching verified knowledge...'}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Header Row: Verified Answer Badge on Left + Mac M4 Camera Notch Pill on Right */}
+                          {!msg.isGenerating && !msg.error && msg.content && (
+                            <div className="flex items-center justify-between gap-2 pb-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-neutral-300 tracking-tight">
+                                  Liora Verified Answer
+                                </span>
+                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-[#292929] text-neutral-400 font-mono border border-[#353535]">
+                                  Deterministic RAG
+                                </span>
+                              </div>
+
+                              {/* Mac M4 Front Camera / Dynamic Island Notch Pill for Citations */}
+                              {messageSources.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => openDrawerForMessage(msg, 0)}
+                                  className="group flex items-center gap-2 px-3 py-1 rounded-full bg-black/90 hover:bg-neutral-900 border border-[#333333] hover:border-neutral-500 shadow-md transition-all cursor-pointer active:scale-95 select-none"
+                                  title="Click to view all sources in full drawer"
+                                >
+                                  {/* Mac Camera lens glowing dot */}
+                                  <div className="relative flex items-center justify-center w-2 h-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                  </div>
+                                  <span className="text-[11px] font-medium text-neutral-300 group-hover:text-white">
+                                    Sources
+                                  </span>
+                                  <span className="px-1.5 py-0.2 rounded-full bg-[#222222] text-[10px] font-mono text-neutral-400 group-hover:text-blue-300 border border-[#333333]">
+                                    {messageSources.length}
+                                  </span>
+                                  <ExternalLink className="w-2.5 h-2.5 text-neutral-500 group-hover:text-neutral-300 transition-colors" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Error State if API call failed */}
+                          {msg.error && (
+                            <div className="flex items-center gap-2 text-xs text-red-400 bg-red-950/20 border border-red-900/30 px-3 py-2 rounded-xl w-fit">
+                              <AlertCircle className="w-4 h-4 shrink-0" />
+                              <span>{msg.content}</span>
+                            </div>
+                          )}
+
+                          {/* Structured Answer (100% Asterisk Free) with Interactive Citation Badges */}
+                          {!msg.error && msg.content && (
+                            <div className="flex flex-col gap-2">
+                              <StructuredAnswer
+                                content={msg.content}
+                                citations={msg.citations}
+                                rawSources={msg.rawSources}
+                                onSelectCitation={(num) => openDrawerBySourceNum(msg, num)}
+                              />
+                            </div>
+                          )}
+
+                          {/* Bottom Action Row: Small subtle Liora logo + Sources button + Copy + Timestamp */}
+                          {!msg.isGenerating && msg.content && (
+                            <div className="flex items-center gap-2.5 mt-1 text-neutral-500">
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#242424] border border-[#333333] text-[11px] text-neutral-400">
+                                <Sparkles className="w-3 h-3 text-blue-400" />
+                                <span className="font-medium text-neutral-300">Liora</span>
+                              </div>
+
+                              {messageSources.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => openDrawerForMessage(msg, 0)}
+                                  className="flex items-center gap-1.5 px-2 py-0.5 rounded-md hover:bg-[#282828] text-[11px] text-neutral-400 hover:text-neutral-200 transition-colors cursor-pointer border border-transparent hover:border-[#333]"
+                                  title="View grounding sources"
+                                >
+                                  <BookOpen className="w-3 h-3 text-blue-400" />
+                                  <span>{messageSources.length} sources</span>
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(msg.id, msg.content)}
+                                className="p-1 rounded-md hover:bg-[#2a2a2a] hover:text-neutral-300 transition-colors cursor-pointer"
+                                title="Copy response"
+                              >
+                                {copiedId === msg.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                              <span className="text-[11px] font-mono">
+                                {msg.timestamp}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
           </div>
 
           {/* FIXED BOTTOM PROMPT INPUT BAR (Never scrolls with the page) */}
           <div className="w-full px-4 pb-4 pt-2 shrink-0 bg-gradient-to-t from-[#212121] via-[#212121]/95 to-transparent z-20">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-[820px] mx-auto">
               {renderInputBox()}
             </div>
           </div>
         </div>
       )}
+
+      {/* Slide-out Grounding Sources Drawer Panel */}
+      <SourceDrawer
+        isOpen={drawerState.isOpen}
+        onClose={() => setDrawerState((prev) => ({ ...prev, isOpen: false }))}
+        sources={drawerState.sources}
+        activeIndex={drawerState.activeIndex}
+        onSelectIndex={(index) =>
+          setDrawerState((prev) => ({ ...prev, activeIndex: index }))
+        }
+      />
     </div>
   );
 };

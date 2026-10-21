@@ -221,7 +221,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // FULL EXPANDED SIDEBAR (ChatGPT dark theme: #171717, w-72)
   // ============================================================
   return (
-    <aside className="fixed left-0 top-0 h-full w-72 bg-[#171717] border-r border-[#262626] z-50 flex flex-col justify-between select-none text-neutral-200 font-['Plus_Jakarta_Sans',sans-serif] transition-all duration-200">
+    <aside className="fixed left-0 top-0 h-full w-60 bg-[#171717] border-r border-[#262626] z-50 flex flex-col justify-between select-none text-neutral-200 font-['Plus_Jakarta_Sans',sans-serif] transition-all duration-200">
       {/* Global transparent backdrop for closing open context menu */}
       {menuChatId && (
         <div

@@ -279,7 +279,9 @@ export const CreateAccountPage: React.FC<CreateAccountPageProps> = ({
                 {otpDigits.map((d, i) => (
                   <input
                     key={i}
-                    ref={(el) => (otpRefs.current[i] = el)}
+                    ref={(el) => {
+                      otpRefs.current[i] = el;
+                    }}
                     type="text"
                     inputMode="numeric"
                     maxLength={1}

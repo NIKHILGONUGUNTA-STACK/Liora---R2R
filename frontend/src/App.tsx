@@ -141,7 +141,7 @@ export default function App() {
   if (view === 'auth') {
     return (
       <AuthPage
-        initialMode={authMode}
+        initialMode={authMode === 'signup' ? 'create' : 'signin'}
         onSuccess={(email) => {
           setSession(getSession());
           navigateTo('/chat');

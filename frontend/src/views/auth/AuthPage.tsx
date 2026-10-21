@@ -931,7 +931,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         {createOtpDigits.map((digit, idx) => (
                           <input
                             key={idx}
-                            ref={(el) => (createOtpRefs.current[idx] = el)}
+                            ref={(el) => {
+                              createOtpRefs.current[idx] = el;
+                            }}
                             type="text"
                             inputMode="numeric"
                             maxLength={1}
@@ -1173,7 +1175,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                         {forgotOtpDigits.map((digit, idx) => (
                           <input
                             key={idx}
-                            ref={(el) => (forgotOtpRefs.current[idx] = el)}
+                            ref={(el) => {
+                              forgotOtpRefs.current[idx] = el;
+                            }}
                             type="text"
                             inputMode="numeric"
                             maxLength={1}
