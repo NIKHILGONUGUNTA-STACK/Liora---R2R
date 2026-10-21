@@ -25,9 +25,10 @@ async def upload_document(
     AuditLogger.log("DOCUMENT_UPLOAD", user_id=str(current_user.id), details={"document_id": str(doc_resp.id)})
 
     if process_sync:
-        # Synchronously process small files so they are immediately queryable
+        # Offload synchronous chunking & embedding to worker threadpool so uvicorn loop never freezes
+        from starlette.concurrency import run_in_threadpool
         try:
-            service.process_document(doc_resp.id)
+            await run_in_threadpool(service.process_document, doc_resp.id)
         except Exception as e:
             logger.error(f"Synchronous ingestion failed for {doc_resp.id}: {e}")
             raise HTTPException(status_code=400, detail=str(e))
